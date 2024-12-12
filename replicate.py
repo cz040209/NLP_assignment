@@ -3,7 +3,7 @@ import pdfplumber
 import requests
 
 # Your Replicate API token
-REPLICATE_TOKEN = "r8_X3zY9ErRiIIfz5mcNq5hC8LM2ZrYLuN2f2kgW"  # Replace with your token
+REPLICATE_TOKEN = "r8_1234567890abcdef1234567890abcdef"  # Replace with your token
 
 # Base URL for Replicate API
 REPLICATE_BASE_URL = "https://api.replicate.com/v1/predictions"
