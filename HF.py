@@ -1,4 +1,4 @@
-import streamlit as st
+import gradio as gr
 import pdfplumber
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, pipeline, AutoModelForCausalLM
 
@@ -6,7 +6,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, Ma
 HF_TOKEN = "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"  # Replace with your token
 
 # Load Models and Pipelines
-@st.cache_resource
 def load_model(model_name):
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
@@ -64,62 +63,50 @@ def extract_text_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
-# Streamlit App
-st.title("Interactive Chat Application with Text and PDF Summarization")
-st.subheader("Summarize content from uploaded PDFs, translate, or generate code.")
+# Gradio Interface Functions
 
-# Option to choose between PDF upload, manual input, translation, or code generation
-option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually", "Translate Text", "Generate Code"))
-
-if option == "Upload PDF":
-    # File uploader
-    uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
-    if uploaded_file:
-        pdf_text = extract_text_from_pdf(uploaded_file)
-        if pdf_text:
-            st.success("Text extracted successfully!")
-            st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
-            st.subheader("Summarize the PDF Content")
-            if st.button("Summarize PDF"):
-                with st.spinner("Summarizing text..."):
-                    summary = summarize_text(pdf_text)
-                st.success("Summary generated!")
-                st.write(summary)
-        else:
-            st.error("Failed to extract text. Please check your PDF file.")
-
-elif option == "Enter Text Manually":
-    manual_text = st.text_area("Enter your text below:", height=200)
-    if manual_text.strip():
-        st.subheader("Summarize the Entered Text")
-        if st.button("Summarize Text"):
-            with st.spinner("Summarizing text..."):
-                summary = summarize_text(manual_text)
-            st.success("Summary generated!")
-            st.write(summary)
+def summarize_pdf(file):
+    pdf_text = extract_text_from_pdf(file)
+    if pdf_text:
+        summary = summarize_text(pdf_text)
+        return summary
     else:
-        st.info("Please enter some text to summarize.")
+        return "Failed to extract text. Please check your PDF file."
 
-elif option == "Translate Text":
-    st.subheader("Translate Text")
-    input_text = st.text_area("Enter text to translate:", height=200)
-    if input_text.strip():
-        if st.button("Translate"):
-            with st.spinner("Translating text..."):
-                translation = translator(input_text)
-            st.success("Translation generated!")
-            st.write(translation[0]['translation_text'])
-    else:
-        st.info("Please enter some text to translate.")
+def summarize_text_input(text):
+    return summarize_text(text)
 
-elif option == "Generate Code":
-    st.subheader("Generate Code")
-    prompt = st.text_area("Enter prompt for code generation:", height=200)
-    if prompt.strip():
-        if st.button("Generate Code"):
-            with st.spinner("Generating code..."):
-                generated_code = code_generator(prompt, max_length=200)
-            st.success("Code generated!")
-            st.code(generated_code[0]['generated_text'], language="python")
-    else:
-        st.info("Please enter a prompt to generate code.")
+def translate_text_input(text):
+    translation = translator(text)
+    return translation[0]['translation_text']
+
+def generate_code_input(prompt):
+    generated_code = code_generator(prompt, max_length=200)
+    return generated_code[0]['generated_text']
+
+# Gradio Interface
+with gr.Blocks() as demo:
+    gr.Markdown("# Interactive Chat Application with Text and PDF Summarization")
+    gr.Markdown("Summarize content from uploaded PDFs, translate, or generate code.")
+    
+    with gr.Tab("Upload PDF"):
+        pdf_input = gr.File(file_types=["pdf"], label="Upload PDF")
+        pdf_output = gr.Textbox(label="Summarized PDF Content")
+        pdf_input.upload(summarize_pdf, pdf_input, pdf_output)
+
+    with gr.Tab("Enter Text Manually"):
+        manual_text_input = gr.Textbox(label="Enter text to summarize", lines=5)
+        manual_text_output = gr.Textbox(label="Summarized Text")
+        manual_text_input.submit(summarize_text_input, manual_text_input, manual_text_output)
+    
+    with gr.Tab("Translate Text"):
+        translate_input = gr.Textbox(label="Enter text to translate", lines=5)
+        translate_output = gr.Textbox(label="Translated Text")
+        translate_input.submit(translate_text_input, translate_input, translate_output)
+
+    with gr.Tab("Generate Code"):
+        code_input = gr.Textbox(label="Enter prompt for code generation", lines=5)
+        code_output = gr.Textbox(label="Generated Code")
+        code_input.submit(generate_code_input, code_input, code_output)
+
+demo.launch()
