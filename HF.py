@@ -7,6 +7,9 @@ import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
 import pytesseract  # For OCR (Image to Text)
 
+# Set the path to the tesseract executable
+pytesseract.pytesseract.tesseract_cmd = r'C:\Users\chenz\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111\tesseract.exe'
+
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
 
