@@ -116,12 +116,20 @@ st.markdown("""
             color: #61dafb;
             font-size: 20px;
         }
+        .botify-title {
+            font-family: 'Arial', sans-serif;
+            font-size: 48px;
+            font-weight: bold;
+            color: #61dafb;
+            text-align: center;
+            margin-top: 50px;
+            margin-bottom: 30px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# Streamlit App Title
-st.title("Botify - Interactive Summarization, Q&A, and Translation Application")
-st.markdown("<h3 style='color: #61dafb;'>Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!</h3>", unsafe_allow_html=True)
+# Botify Title
+st.markdown('<h1 class="botify-title">Botify</h1>', unsafe_allow_html=True)
 
 # Option to choose between PDF upload, manual input, or translation
 option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
