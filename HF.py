@@ -1,6 +1,6 @@
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
 import torch
 
 # Your Hugging Face token
@@ -14,17 +14,15 @@ def load_summarization_model():
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     return tokenizer, model
 
-# Load Question-Answering Model and Tokenizer
+# Load MarianMT Model and Tokenizer for Translation (Chinese-English)
 @st.cache_resource
-def load_qa_model():
-    model_name = "deepset/roberta-large-squad2"  # Updated to the larger model
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    model = AutoModelForQuestionAnswering.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    return tokenizer, model
+def load_translation_model(model_name):
+    model = MarianMTModel.from_pretrained(model_name)
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    return model, tokenizer
 
 # Initialize models and tokenizers
 summarization_tokenizer, summarization_model = load_summarization_model()
-qa_tokenizer, qa_model = load_qa_model()
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -65,21 +63,11 @@ def extract_text_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
-# Function to answer questions based on a context
-def answer_question(context, question):
-    inputs = qa_tokenizer(question, context, return_tensors="pt", truncation=True, padding=True, max_length=512)
-    with torch.no_grad():
-        outputs = qa_model(**inputs)
-        answer_start = torch.argmax(outputs.start_logits)  # Start of the answer
-        answer_end = torch.argmax(outputs.end_logits) + 1  # End of the answer
-    answer = qa_tokenizer.decode(inputs.input_ids[0][answer_start:answer_end], skip_special_tokens=True)
-    return answer if answer.strip() else "No answer found."
-
 # Streamlit App
-st.title("Interactive Summarization and Q&A Application")
-st.subheader("Summarize content from PDFs or manual input and ask questions about it.")
+st.title("Interactive Summarization, Q&A, and Translation Application")
+st.subheader("Summarize content from PDFs or manual input, ask questions, and translate text.")
 
-# Option to choose between PDF upload or manual input
+# Option to choose between PDF upload, manual input, or translation
 option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually"))
 
 # Initialize variables for context
@@ -120,15 +108,27 @@ elif option == "Enter Text Manually":
     else:
         st.info("Please enter some text to summarize.")
 
-# Q&A Section
+# Translation Section
+st.subheader("Translate Text")
+
+# Choose translation direction (English ↔ Chinese)
+target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
+
 if context_text:
-    st.subheader("Ask a Question About the Text")
-    question = st.text_input("Enter your question:", "")
-    if st.button("Get Answer"):
-        if question.strip():
-            with st.spinner("Finding the answer..."):
-                answer = answer_question(context_text, question)
-            st.success("Answer:")
-            st.write(answer)
-        else:
-            st.info("Please enter a valid question.")
+    st.subheader("Translate the Text")
+    if st.button("Translate Text"):
+        with st.spinner("Translating text..."):
+            if target_language == "English to Chinese":
+                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
+            else:
+                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
+
+            translation_model, translation_tokenizer = load_translation_model(model_name)
+            
+            # Translate the text
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
