@@ -2,4 +2,8 @@ streamlit
 pdfplumber
 transformers
 torch
+speechrecognition
+pydub
+torchvision
+Pillow
 sentencepiece
