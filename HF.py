@@ -92,15 +92,15 @@ if 'history' not in st.session_state:
 st.title("Interactive Summarization, Q&A, and Translation Application")
 st.subheader("Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!")
 
-# Option to choose between PDF upload, manual input, or translation
-option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
+# Display an interactive input method for the user
+st.subheader("Input your content:")
+input_method = st.selectbox("Choose input method:", ["Enter Text", "Upload PDF", "Upload Audio", "Upload Image"])
 
 context_text = ""
 
-# Handling different options
-if option == "Upload PDF":
+# Handle different input methods based on the user's choice
+if input_method == "Upload PDF":
     uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
-
     if uploaded_file:
         with st.spinner("Extracting text from PDF..."):
             pdf_text = extract_text_from_pdf(uploaded_file)
@@ -109,35 +109,19 @@ if option == "Upload PDF":
             st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
             context_text = pdf_text
 
-            # Summarize text
-            st.subheader("Summarize the PDF Content")
-            if st.button("Summarize PDF"):
-                with st.spinner("Summarizing text..."):
-                    summary = summarize_text(pdf_text)
-                st.success("Summary generated!")
-                st.write(summary)
-                st.session_state.history.append(("PDF Upload", summary))
-        else:
-            st.error("Failed to extract text. Please check your PDF file.")
-
-elif option == "Enter Text Manually":
+elif input_method == "Enter Text":
     manual_text = st.text_area("Enter your text below:", height=200)
     if manual_text.strip():
         context_text = manual_text
-
-        st.subheader("Summarize the Entered Text")
         if st.button("Summarize Text"):
             with st.spinner("Summarizing text..."):
                 summary = summarize_text(manual_text)
             st.success("Summary generated!")
             st.write(summary)
             st.session_state.history.append(("Manual Text", summary))
-    else:
-        st.info("Please enter some text to summarize.")
 
-elif option == "Upload Audio":
+elif input_method == "Upload Audio":
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"])
-
     if audio_file:
         with st.spinner("Transcribing audio to text..."):
             try:
@@ -148,9 +132,8 @@ elif option == "Upload Audio":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-elif option == "Upload Image":
+elif input_method == "Upload Image":
     image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-
     if image_file:
         with st.spinner("Extracting text from image..."):
             image_text = image_to_text(image_file)
