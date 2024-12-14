@@ -92,18 +92,6 @@ if 'history' not in st.session_state:
 st.title("Interactive Summarization, Q&A, and Translation Application")
 st.subheader("Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!")
 
-# Chat-style container for interaction
-chat_container = st.container()
-with chat_container:
-    # Display History in Chat Style
-    for i, (user_input, response_output) in enumerate(st.session_state.history):
-        if user_input:  # User Input
-            with st.chat_message("user"):
-                st.markdown(f"**User:** {user_input}")
-        if response_output:  # System Output
-            with st.chat_message("assistant"):
-                st.markdown(f"**Assistant:** {response_output}")
-
 # Option to choose between PDF upload, manual input, or translation
 option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
 
@@ -122,9 +110,12 @@ if option == "Upload PDF":
             context_text = pdf_text
 
             # Summarize text
+            st.subheader("Summarize the PDF Content")
             if st.button("Summarize PDF"):
                 with st.spinner("Summarizing text..."):
                     summary = summarize_text(pdf_text)
+                st.success("Summary generated!")
+                st.write(summary)
                 st.session_state.history.append(("PDF Upload", summary))
         else:
             st.error("Failed to extract text. Please check your PDF file.")
@@ -134,9 +125,12 @@ elif option == "Enter Text Manually":
     if manual_text.strip():
         context_text = manual_text
 
+        st.subheader("Summarize the Entered Text")
         if st.button("Summarize Text"):
             with st.spinner("Summarizing text..."):
                 summary = summarize_text(manual_text)
+            st.success("Summary generated!")
+            st.write(summary)
             st.session_state.history.append(("Manual Text", summary))
     else:
         st.info("Please enter some text to summarize.")
@@ -148,9 +142,11 @@ elif option == "Upload Audio":
         with st.spinner("Transcribing audio to text..."):
             try:
                 transcription = audio_to_text(audio_file)
+                st.success("Transcription successful!")
+                st.write(transcription)
                 st.session_state.history.append(("Audio Upload", transcription))
             except Exception as e:
-                st.session_state.history.append(("Audio Upload", f"Error: {e}"))
+                st.error(f"Error: {e}")
 
 elif option == "Upload Image":
     image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
@@ -158,11 +154,19 @@ elif option == "Upload Image":
     if image_file:
         with st.spinner("Extracting text from image..."):
             image_text = image_to_text(image_file)
+            st.success("Text extracted from image!")
+            st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
 
-# Bottom prompt input field
-with st.container():
-    st.text_input("Type your prompt here:", key="prompt", placeholder="Ask or upload...", on_change=None, label_visibility="collapsed")
+# Display History on the Left Side (Sidebar)
+st.sidebar.subheader("Interaction History")
+if st.session_state.history:
+    for i, (user_input, response_output) in enumerate(st.session_state.history):
+        st.sidebar.write(f"**Interaction {i + 1}:**")
+        st.sidebar.write(f"**User Input:** {user_input}")
+        st.sidebar.write(f"**Response Output:** {response_output}")
+else:
+    st.sidebar.write("No history yet.")
 
 # Translation Section
 st.subheader("Translate Text")
@@ -186,5 +190,6 @@ if context_text:
             translated = translation_model.generate(**inputs)
             translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
-        st.session_state.history.append(("Translation", translated_text))
+        st.success(f"Translated text ({target_language}):")
         st.write(translated_text)
+        st.session_state.history.append(("Translation", translated_text))
