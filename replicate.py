@@ -1,48 +1,37 @@
 import streamlit as st
 import pdfplumber
-import requests
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 
-# Your Replicate API token
-REPLICATE_TOKEN = "r8_1234567890abcdef1234567890abcdef"  # Replace with your token
+# Your Hugging Face token
+HF_TOKEN = "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"  # Replace with your token
 
-# Base URL for Replicate API
-REPLICATE_BASE_URL = "https://api.replicate.com/v1/predictions"
+# Load LLaMA 2 Models and Pipelines
+@st.cache_resource
+def load_model():
+    # Hugging Face model details for LLaMA 2
+    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Adjust model size as needed
 
-# Function to make Replicate API call for summarization
-def llama_summarize_replicate(text):
-    headers = {
-        "Authorization": f"Token {REPLICATE_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "version": "version_id_for_llama_summarization",  # Replace with the specific model version
-        "input": {"text": text},
-    }
-    response = requests.post(REPLICATE_BASE_URL, json=payload, headers=headers)
-    if response.status_code == 200:
-        result = response.json()
-        return result.get("output", "No summary available.")
-    else:
-        st.error(f"Error {response.status_code}: {response.text}")
-        return "Failed to generate summary."
+    # Load the tokenizer and model with authentication
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
 
-# Function to make Replicate API call for Q&A
-def llama_qa_replicate(question, context):
-    headers = {
-        "Authorization": f"Token {REPLICATE_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "version": "version_id_for_llama_qa",  # Replace with the specific model version
-        "input": {"question": question, "context": context},
-    }
-    response = requests.post(REPLICATE_BASE_URL, json=payload, headers=headers)
-    if response.status_code == 200:
-        result = response.json()
-        return result.get("output", "No answer available.")
-    else:
-        st.error(f"Error {response.status_code}: {response.text}")
-        return "Failed to generate answer."
+    # Create pipelines
+    summarizer = pipeline("summarization", model=model, tokenizer=tokenizer)
+    qa_pipeline = pipeline("question-answering", model=model, tokenizer=tokenizer)
+    return summarizer, qa_pipeline
+
+# Initialize the pipelines
+summarizer, qa_pipeline = load_model()
+
+# Function to summarize text using LLaMA 2
+def llama_summarize(text):
+    result = summarizer(text, max_length=150, min_length=40, do_sample=False)
+    return result[0]['summary_text'] if result else "No summary available."
+
+# Function for Q&A using LLaMA 2
+def llama_qa(question, context):
+    result = qa_pipeline(question=question, context=context)
+    return result['answer'] if result else "No answer available."
 
 # Extract text from PDF
 def extract_text_from_pdf(pdf_file):
@@ -50,8 +39,8 @@ def extract_text_from_pdf(pdf_file):
         return " ".join(page.extract_text() for page in pdf.pages)
 
 # Streamlit App
-st.title("Interactive Chat Application with PDF (Replicate Platform)")
-st.subheader("Upload a PDF to interact with its content using LLaMA 2 on Replicate.")
+st.title("Interactive Chat Application with PDF (LLaMA 2)")
+st.subheader("Upload a PDF to interact with its content using LLaMA 2.")
 
 # File uploader
 uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
@@ -69,7 +58,7 @@ if uploaded_file:
         st.subheader("Summarize the PDF Content")
         if st.button("Summarize"):
             with st.spinner("Summarizing text..."):
-                summary = llama_summarize_replicate(pdf_text)
+                summary = llama_summarize(pdf_text)
             st.success("Summary generated!")
             st.write(summary)
 
@@ -78,7 +67,7 @@ if uploaded_file:
         user_question = st.text_input("Enter your question:")
         if user_question:
             with st.spinner("Processing your question..."):
-                answer = llama_qa_replicate(user_question, pdf_text)
+                answer = llama_qa(user_question, pdf_text)
             st.success("Answer generated!")
             st.write(f"**Answer**: {answer}")
     else:
