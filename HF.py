@@ -84,13 +84,9 @@ def image_to_text(image_file):
     text = pytesseract.image_to_string(image)
     return text
 
-# Initialize session state for history if it doesn't exist
+# History storage - will store interactions as tuples (user_input, response_output)
 if 'history' not in st.session_state:
     st.session_state.history = []
-
-# Function to add a new history entry
-def add_to_history(action, result):
-    st.session_state.history.append({"action": action, "result": result})
 
 # Streamlit App
 st.title("Interactive Summarization, Q&A, and Translation Application")
@@ -118,10 +114,9 @@ if option == "Upload PDF":
             if st.button("Summarize PDF"):
                 with st.spinner("Summarizing text..."):
                     summary = summarize_text(pdf_text)
-                    st.success("Summary generated!")
-                    st.write(summary)
-                    # Add summary to history
-                    add_to_history("Summarized PDF", summary)
+                st.success("Summary generated!")
+                st.write(summary)
+                st.session_state.history.append(("PDF Upload", summary))
         else:
             st.error("Failed to extract text. Please check your PDF file.")
 
@@ -134,10 +129,9 @@ elif option == "Enter Text Manually":
         if st.button("Summarize Text"):
             with st.spinner("Summarizing text..."):
                 summary = summarize_text(manual_text)
-                st.success("Summary generated!")
-                st.write(summary)
-                # Add summary to history
-                add_to_history("Summarized Manual Text", summary)
+            st.success("Summary generated!")
+            st.write(summary)
+            st.session_state.history.append(("Manual Text", summary))
     else:
         st.info("Please enter some text to summarize.")
 
@@ -150,8 +144,7 @@ elif option == "Upload Audio":
                 transcription = audio_to_text(audio_file)
                 st.success("Transcription successful!")
                 st.write(transcription)
-                # Add transcription to history
-                add_to_history("Transcribed Audio", transcription)
+                st.session_state.history.append(("Audio Upload", transcription))
             except Exception as e:
                 st.error(f"Error: {e}")
 
@@ -163,8 +156,17 @@ elif option == "Upload Image":
             image_text = image_to_text(image_file)
             st.success("Text extracted from image!")
             st.write(image_text)
-            # Add extracted text to history
-            add_to_history("Extracted Text from Image", image_text)
+            st.session_state.history.append(("Image Upload", image_text))
+
+# Display History on the Left Side (Sidebar)
+st.sidebar.subheader("Interaction History")
+if st.session_state.history:
+    for i, (user_input, response_output) in enumerate(st.session_state.history):
+        st.sidebar.write(f"**Interaction {i + 1}:**")
+        st.sidebar.write(f"**User Input:** {user_input}")
+        st.sidebar.write(f"**Response Output:** {response_output}")
+else:
+    st.sidebar.write("No history yet.")
 
 # Translation Section
 st.subheader("Translate Text")
@@ -190,16 +192,4 @@ if context_text:
 
         st.success(f"Translated text ({target_language}):")
         st.write(translated_text)
-        # Add translation to history
-        add_to_history(f"Translated Text ({target_language})", translated_text)
-
-# Display history
-st.subheader("History of Actions")
-
-if st.session_state.history:
-    for entry in st.session_state.history:
-        st.write(f"**Action:** {entry['action']}")
-        st.write(f"**Result:** {entry['result'][:500]}...")  # Display only the first 500 characters
-        st.markdown("---")
-else:
-    st.info("No actions have been performed yet.")
+        st.session_state.history.append(("Translation", translated_text))
