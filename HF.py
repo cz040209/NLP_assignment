@@ -116,6 +116,23 @@ st.markdown("""
             color: #61dafb;
             font-size: 20px;
         }
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .input-box, .output-box {
+            width: 45%;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: #f5f5f5;
+        }
+        .input-box {
+            background-color: #ffffff;
+        }
+        .output-box {
+            background-color: #e8f4f8;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -189,17 +206,7 @@ elif option == "Upload Image":
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
 
-# Sidebar for Interaction History with improved layout
-st.sidebar.subheader("Interaction History")
-if st.session_state.history:
-    for i, (user_input, response_output) in enumerate(st.session_state.history):
-        st.sidebar.write(f"**Interaction {i + 1}:**")
-        st.sidebar.write(f"**User Input:** {user_input}")
-        st.sidebar.write(f"**Response Output:** {response_output}")
-else:
-    st.sidebar.write("No history yet.")
-
-# Translation Section with clean layout
+# Translation Section with a Google Translate-style layout
 st.subheader("Translate Text")
 
 # Choose translation direction (English ↔ Chinese)
@@ -207,20 +214,28 @@ target_language = st.selectbox("Choose translation direction:", ("English to Chi
 
 if context_text:
     st.subheader("Translate the Text")
-    if st.button("Translate Text", use_container_width=True):
-        with st.spinner("Translating text..."):
-            if target_language == "English to Chinese":
-                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
-            else:
-                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
+    
+    # Left-right layout with input on the left and output on the right
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.text_area("Input Text", context_text, height=200)
+    
+    with col2:
+        if st.button("Translate Text", use_container_width=True):
+            with st.spinner("Translating text..."):
+                if target_language == "English to Chinese":
+                    model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
+                else:
+                    model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
 
-            translation_model, translation_tokenizer = load_translation_model(model_name)
-            
-            # Translate the text
-            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-            translated = translation_model.generate(**inputs)
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+                translation_model, translation_tokenizer = load_translation_model(model_name)
+                
+                # Translate the text
+                inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+                translated = translation_model.generate(**inputs)
+                translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
-        st.success(f"Translated text ({target_language}):")
-        st.write(translated_text)
-        st.session_state.history.append(("Translation", translated_text))
+            st.success(f"Translated text ({target_language}):")
+            st.text_area("Translated Text", translated_text, height=200)
+            st.session_state.history.append(("Translation", translated_text))
