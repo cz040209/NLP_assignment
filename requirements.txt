@@ -7,3 +7,4 @@ pydub
 torchvision
 Pillow
 sentencepiece
+pytesseract
