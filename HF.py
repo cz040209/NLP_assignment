@@ -88,67 +88,19 @@ def image_to_text(image_file):
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# Custom CSS for a more premium look
-st.markdown("""
-    <style>
-        .css-1d391kg {
-            background-color: #1c1f24;  /* Dark background */
-            color: white;
-            font-family: 'Arial', sans-serif;
-        }
-        .css-1v0m2ju {
-            background-color: #282c34;  /* Slightly lighter background */
-        }
-        .css-13ya6yb {
-            background-color: #61dafb;  /* Button color */
-            border-radius: 5px;
-            padding: 10px 20px;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .css-10trblm {
-            font-size: 18px;
-            font-weight: bold;
-            color: #282c34;
-        }
-        .css-3t9iqy {
-            color: #61dafb;
-            font-size: 20px;
-        }
-        .container {
-            display: flex;
-            justify-content: space-between;
-        }
-        .input-box, .output-box {
-            width: 45%;
-            padding: 15px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            background-color: #f5f5f5;
-        }
-        .input-box {
-            background-color: #ffffff;
-        }
-        .output-box {
-            background-color: #e8f4f8;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Streamlit App Title
+# Streamlit App
 st.title("Interactive Summarization, Q&A, and Translation Application")
-st.markdown("<h3 style='color: #61dafb;'>Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!</h3>", unsafe_allow_html=True)
+st.subheader("Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!")
 
-# Option to choose between PDF upload, manual input, or translation
-option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
+# Display an interactive input method for the user
+st.subheader("Input your content:")
+input_method = st.selectbox("Choose input method:", ["Enter Text", "Upload PDF", "Upload Audio", "Upload Image"])
 
 context_text = ""
 
-# Handling different options
-if option == "Upload PDF":
-    uploaded_file = st.file_uploader("Upload a PDF", type="pdf", label_visibility="collapsed")
-
+# Handle different input methods based on the user's choice
+if input_method == "Upload PDF":
+    uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
     if uploaded_file:
         with st.spinner("Extracting text from PDF..."):
             pdf_text = extract_text_from_pdf(uploaded_file)
@@ -157,35 +109,19 @@ if option == "Upload PDF":
             st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
             context_text = pdf_text
 
-            # Summarize text
-            st.subheader("Summarize the PDF Content")
-            if st.button("Summarize PDF", use_container_width=True):
-                with st.spinner("Summarizing text..."):
-                    summary = summarize_text(pdf_text)
-                st.success("Summary generated!")
-                st.write(summary)
-                st.session_state.history.append(("PDF Upload", summary))
-        else:
-            st.error("Failed to extract text. Please check your PDF file.")
-
-elif option == "Enter Text Manually":
+elif input_method == "Enter Text":
     manual_text = st.text_area("Enter your text below:", height=200)
     if manual_text.strip():
         context_text = manual_text
-
-        st.subheader("Summarize the Entered Text")
-        if st.button("Summarize Text", use_container_width=True):
+        if st.button("Summarize Text"):
             with st.spinner("Summarizing text..."):
                 summary = summarize_text(manual_text)
             st.success("Summary generated!")
             st.write(summary)
             st.session_state.history.append(("Manual Text", summary))
-    else:
-        st.info("Please enter some text to summarize.")
 
-elif option == "Upload Audio":
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"], label_visibility="collapsed")
-
+elif input_method == "Upload Audio":
+    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"])
     if audio_file:
         with st.spinner("Transcribing audio to text..."):
             try:
@@ -196,9 +132,8 @@ elif option == "Upload Audio":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-elif option == "Upload Image":
-    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-
+elif input_method == "Upload Image":
+    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
     if image_file:
         with st.spinner("Extracting text from image..."):
             image_text = image_to_text(image_file)
@@ -206,7 +141,17 @@ elif option == "Upload Image":
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
 
-# Translation Section with a Google Translate-style layout
+# Display History on the Left Side (Sidebar)
+st.sidebar.subheader("Interaction History")
+if st.session_state.history:
+    for i, (user_input, response_output) in enumerate(st.session_state.history):
+        st.sidebar.write(f"**Interaction {i + 1}:**")
+        st.sidebar.write(f"**User Input:** {user_input}")
+        st.sidebar.write(f"**Response Output:** {response_output}")
+else:
+    st.sidebar.write("No history yet.")
+
+# Translation Section
 st.subheader("Translate Text")
 
 # Choose translation direction (English ↔ Chinese)
@@ -214,28 +159,20 @@ target_language = st.selectbox("Choose translation direction:", ("English to Chi
 
 if context_text:
     st.subheader("Translate the Text")
-    
-    # Left-right layout with input on the left and output on the right
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.text_area("Input Text", context_text, height=200)
-    
-    with col2:
-        if st.button("Translate Text", use_container_width=True):
-            with st.spinner("Translating text..."):
-                if target_language == "English to Chinese":
-                    model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
-                else:
-                    model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
+    if st.button("Translate Text"):
+        with st.spinner("Translating text..."):
+            if target_language == "English to Chinese":
+                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
+            else:
+                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
 
-                translation_model, translation_tokenizer = load_translation_model(model_name)
-                
-                # Translate the text
-                inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-                translated = translation_model.generate(**inputs)
-                translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+            translation_model, translation_tokenizer = load_translation_model(model_name)
+            
+            # Translate the text
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
-            st.success(f"Translated text ({target_language}):")
-            st.text_area("Translated Text", translated_text, height=200)
-            st.session_state.history.append(("Translation", translated_text))
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
+        st.session_state.history.append(("Translation", translated_text))
