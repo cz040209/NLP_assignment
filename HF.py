@@ -1,10 +1,11 @@
 import os
-os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Disable parallelism for tokenizers
-
 import streamlit as st
 import pdfplumber
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
 import torch
+import speech_recognition as sr  # For audio-to-text functionality
+from PIL import Image
+import pytesseract  # For OCR (Image to Text)
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
@@ -66,16 +67,30 @@ def extract_text_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
+# Function for Audio-to-Text (Speech Recognition)
+def audio_to_text(audio_file):
+    recognizer = sr.Recognizer()
+    audio = sr.AudioFile(audio_file)
+    with audio as source:
+        audio_data = recognizer.record(source)
+    return recognizer.recognize_google(audio_data)
+
+# Function for Image to Text (OCR)
+def image_to_text(image_file):
+    image = Image.open(image_file)
+    text = pytesseract.image_to_string(image)
+    return text
+
 # Streamlit App
 st.title("Interactive Summarization, Q&A, and Translation Application")
-st.subheader("Summarize content from PDFs or manual input, ask questions, and translate text.")
+st.subheader("Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!")
 
 # Option to choose between PDF upload, manual input, or translation
-option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually"))
+option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
 
-# Initialize variables for context
 context_text = ""
 
+# Handling different options
 if option == "Upload PDF":
     uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
 
@@ -110,6 +125,27 @@ elif option == "Enter Text Manually":
             st.write(summary)
     else:
         st.info("Please enter some text to summarize.")
+
+elif option == "Upload Audio":
+    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"])
+
+    if audio_file:
+        with st.spinner("Transcribing audio to text..."):
+            try:
+                transcription = audio_to_text(audio_file)
+                st.success("Transcription successful!")
+                st.write(transcription)
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+elif option == "Upload Image":
+    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+
+    if image_file:
+        with st.spinner("Extracting text from image..."):
+            image_text = image_to_text(image_file)
+            st.success("Text extracted from image!")
+            st.write(image_text)
 
 # Translation Section
 st.subheader("Translate Text")
