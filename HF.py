@@ -1,39 +1,68 @@
 import streamlit as st
 import pdfplumber
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 
-# Hugging Face token
+# Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
 
-# Load pipelines with caching
+# Load Model and Pipeline
 @st.cache_resource
-def load_pipelines():
-    # Load summarization and question-answering pipelines
-    summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-    qa_pipeline = pipeline("question-answering", model="deepset/roberta-base-squad2")
-    return summarizer, qa_pipeline
+def load_model():
+    model_name = "facebook/bart-large-cnn"  # Replace with your model
 
-# Initialize the pipelines
-summarizer, qa_pipeline = load_pipelines()
+    # Load the tokenizer and model
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+
+    # Create summarization pipeline
+    summarizer = pipeline("summarization", model=model, tokenizer=tokenizer)
+    return summarizer
+
+# Initialize the summarizer pipeline
+summarizer = load_model()
+
+# Function to split text into manageable chunks
+def split_text(text, max_tokens=1024):
+    """Splits text into chunks within the token limit."""
+    words = text.split()
+    chunks = []
+    current_chunk = []
+
+    for word in words:
+        current_chunk.append(word)
+        if len(current_chunk) >= max_tokens:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = []
+
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+
+    return chunks
 
 # Function to summarize text
 def summarize_text(text):
-    result = summarizer(text, max_length=150, min_length=40, do_sample=False)
-    return result[0]['summary_text'] if result else "No summary available."
+    """Summarizes text, handling long inputs."""
+    max_tokens = 1024  # Token limit for the model
+    chunks = split_text(text, max_tokens)
 
-# Function for Q&A
-def answer_question(question, context):
-    result = qa_pipeline(question=question, context=context)
-    return result['answer'] if result else "No answer available."
+    summaries = []
+    for chunk in chunks:
+        result = summarizer(chunk, max_length=150, min_length=40, do_sample=False)
+        if result:
+            summaries.append(result[0]['summary_text'])
 
-# Extract text from PDF
+    # Combine all chunk summaries
+    final_summary = " ".join(summaries)
+    return final_summary if summaries else "No summary available."
+
+# Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
 # Streamlit App
-st.title("Interactive PDF Chat Application")
-st.subheader("Upload a PDF to summarize and interact with its content.")
+st.title("Interactive Chat Application with PDF Summarization")
+st.subheader("Upload a PDF to summarize its content.")
 
 # File uploader
 uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
@@ -47,21 +76,12 @@ if uploaded_file:
         st.success("Text extracted successfully!")
         st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
 
-        # Summarization functionality
+        # Summarize text
         st.subheader("Summarize the PDF Content")
         if st.button("Summarize"):
             with st.spinner("Summarizing text..."):
                 summary = summarize_text(pdf_text)
             st.success("Summary generated!")
             st.write(summary)
-
-        # Q&A functionality
-        st.subheader("Ask Questions About the PDF")
-        user_question = st.text_input("Enter your question:")
-        if user_question:
-            with st.spinner("Processing your question..."):
-                answer = answer_question(user_question, pdf_text)
-            st.success("Answer generated!")
-            st.write(f"**Answer**: {answer}")
     else:
         st.error("Failed to extract text. Please check your PDF file.")
