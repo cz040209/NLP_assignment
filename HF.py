@@ -1,11 +1,12 @@
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
 
-# Load Model and Pipeline
+# Load Model and Tokenizer
 @st.cache_resource
 def load_model():
     model_name = "facebook/bart-large-cnn"  # Replace with your model
@@ -14,12 +15,10 @@ def load_model():
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
 
-    # Create summarization pipeline
-    summarizer = pipeline("summarization", model=model, tokenizer=tokenizer)
-    return summarizer
+    return tokenizer, model
 
-# Initialize the summarizer pipeline
-summarizer = load_model()
+# Initialize the tokenizer and model
+tokenizer, model = load_model()
 
 # Function to split text into manageable chunks
 def split_text(text, max_tokens=1024):
@@ -47,9 +46,15 @@ def summarize_text(text):
 
     summaries = []
     for chunk in chunks:
-        result = summarizer(chunk, max_length=150, min_length=40, do_sample=False)
-        if result:
-            summaries.append(result[0]['summary_text'])
+        # Tokenize the input text
+        inputs = tokenizer(chunk, return_tensors="pt", truncation=True, padding=True, max_length=1024)
+
+        # Generate the summary using the model
+        summary_ids = model.generate(inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True)
+
+        # Decode the generated summary
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        summaries.append(summary)
 
     # Combine all chunk summaries
     final_summary = " ".join(summaries)
