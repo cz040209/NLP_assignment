@@ -8,7 +8,7 @@ HF_TOKEN = "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"  # Replace with your token
 # Load Model and Pipeline
 @st.cache_resource
 def load_model():
-    model_name = "facebook/bart-large-cnn"  # Replace with your model
+    model_name = "meta-llama/Llama-2-7b-hf"  # Replace with Llama2 model
 
     # Load the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
