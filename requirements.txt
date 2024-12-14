@@ -1,4 +1,4 @@
-gradio
-transformers
-pdfplumber
-torch
+streamlit==1.18.0
+pdfplumber==0.8.0
+transformers==4.32.0
+torch==2.1.0
