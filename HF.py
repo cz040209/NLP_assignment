@@ -61,27 +61,45 @@ def extract_text_from_pdf(pdf_file):
         return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
 # Streamlit App
-st.title("Interactive Chat Application with PDF Summarization")
-st.subheader("Upload a PDF to summarize its content.")
+st.title("Interactive Chat Application with Text and PDF Summarization")
+st.subheader("Summarize content from uploaded PDFs or manually entered text.")
 
-# File uploader
-uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+# Option to choose between PDF upload or manual input
+option = st.radio("Choose input method:", ("Upload PDF", "Enter Text Manually"))
 
-if uploaded_file:
-    # Extract text from PDF
-    with st.spinner("Extracting text from PDF..."):
-        pdf_text = extract_text_from_pdf(uploaded_file)
+if option == "Upload PDF":
+    # File uploader
+    uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
 
-    if pdf_text:
-        st.success("Text extracted successfully!")
-        st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
+    if uploaded_file:
+        # Extract text from PDF
+        with st.spinner("Extracting text from PDF..."):
+            pdf_text = extract_text_from_pdf(uploaded_file)
 
-        # Summarize text
-        st.subheader("Summarize the PDF Content")
-        if st.button("Summarize"):
+        if pdf_text:
+            st.success("Text extracted successfully!")
+            st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
+
+            # Summarize text
+            st.subheader("Summarize the PDF Content")
+            if st.button("Summarize PDF"):
+                with st.spinner("Summarizing text..."):
+                    summary = summarize_text(pdf_text)
+                st.success("Summary generated!")
+                st.write(summary)
+        else:
+            st.error("Failed to extract text. Please check your PDF file.")
+
+elif option == "Enter Text Manually":
+    # Manual text input
+    manual_text = st.text_area("Enter your text below:", height=200)
+
+    if manual_text.strip():
+        st.subheader("Summarize the Entered Text")
+        if st.button("Summarize Text"):
             with st.spinner("Summarizing text..."):
-                summary = summarize_text(pdf_text)
+                summary = summarize_text(manual_text)
             st.success("Summary generated!")
             st.write(summary)
     else:
-        st.error("Failed to extract text. Please check your PDF file.")
+        st.info("Please enter some text to summarize.")
