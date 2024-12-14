@@ -1,6 +1,6 @@
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, pipeline
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
@@ -13,11 +13,12 @@ def load_model(model_name):
     summarizer = pipeline("summarization", model=model, tokenizer=tokenizer)
     return summarizer
 
+# Load translation model (using MarianMT for Chinese-to-English translation)
 def load_translation_model():
-    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Replace with your translation model, if needed
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    translator = pipeline("translation_en_to_fr", model=model, tokenizer=tokenizer)  # Example: English to French translation
+    model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English translation model
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    model = MarianMTModel.from_pretrained(model_name)
+    translator = pipeline("translation", model=model, tokenizer=tokenizer)
     return translator
 
 def load_code_generation_model():
@@ -103,7 +104,6 @@ elif option == "Translate Text":
     st.subheader("Translate Text")
     input_text = st.text_area("Enter text to translate:", height=200)
     if input_text.strip():
-        target_language = st.selectbox("Select target language:", ("French", "Spanish", "German", "Italian"))
         if st.button("Translate"):
             with st.spinner("Translating text..."):
                 translation = translator(input_text)
@@ -123,4 +123,3 @@ elif option == "Generate Code":
             st.code(generated_code[0]['generated_text'], language="python")
     else:
         st.info("Please enter a prompt to generate code.")
-
