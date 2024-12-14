@@ -120,7 +120,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Streamlit App Title
-st.title("Interactive Summarization, Q&A, and Translation Application")
+st.title("Botify - Interactive Summarization, Q&A, and Translation Application")
 st.markdown("<h3 style='color: #61dafb;'>Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!</h3>", unsafe_allow_html=True)
 
 # Option to choose between PDF upload, manual input, or translation
