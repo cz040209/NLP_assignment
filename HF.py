@@ -17,7 +17,7 @@ def load_summarization_model():
 # Load Question-Answering Model and Tokenizer
 @st.cache_resource
 def load_qa_model():
-    model_name = "deepset/roberta-base-squad2"  # Replace with a Q&A model
+    model_name = "deepset/roberta-large-squad2"  # Updated to the larger model
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     model = AutoModelForQuestionAnswering.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     return tokenizer, model
