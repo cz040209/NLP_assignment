@@ -1,4 +1,4 @@
-mport streamlit as st
+import streamlit as st
 import pdfplumber
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 
