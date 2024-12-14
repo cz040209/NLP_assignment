@@ -1,6 +1,6 @@
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, pipeline, AutoModelForCausalLM
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
@@ -22,10 +22,10 @@ def load_translation_model():
     return translator
 
 def load_code_generation_model():
-    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Use the appropriate Llama2 model
+    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Use the appropriate Llama2 model for code generation
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    code_generator = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
+    model = AutoModelForCausalLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)  # Correct model class for Llama2
+    code_generator = pipeline("text-generation", model=model, tokenizer=tokenizer)  # Use text-generation pipeline
     return code_generator
 
 # Initialize the summarizer, translator, and code generator pipelines
@@ -118,7 +118,7 @@ elif option == "Generate Code":
     if prompt.strip():
         if st.button("Generate Code"):
             with st.spinner("Generating code..."):
-                generated_code = code_generator(prompt)
+                generated_code = code_generator(prompt, max_length=200)
             st.success("Code generated!")
             st.code(generated_code[0]['generated_text'], language="python")
     else:
