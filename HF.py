@@ -88,19 +88,50 @@ def image_to_text(image_file):
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# Streamlit App
-st.title("Interactive Summarization, Q&A, and Translation Application")
-st.subheader("Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!")
+# Custom CSS for a more premium look
+st.markdown("""
+    <style>
+        .css-1d391kg {
+            background-color: #1c1f24;  /* Dark background */
+            color: white;
+            font-family: 'Arial', sans-serif;
+        }
+        .css-1v0m2ju {
+            background-color: #282c34;  /* Slightly lighter background */
+        }
+        .css-13ya6yb {
+            background-color: #61dafb;  /* Button color */
+            border-radius: 5px;
+            padding: 10px 20px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .css-10trblm {
+            font-size: 18px;
+            font-weight: bold;
+            color: #282c34;
+        }
+        .css-3t9iqy {
+            color: #61dafb;
+            font-size: 20px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# Display an interactive input method for the user
-st.subheader("Input your content:")
-input_method = st.selectbox("Choose input method:", ["Enter Text", "Upload PDF", "Upload Audio", "Upload Image"])
+# Streamlit App Title
+st.title("Interactive Summarization, Q&A, and Translation Application")
+st.markdown("<h3 style='color: #61dafb;'>Summarize content from PDFs, manual input, ask questions, translate text, and process multimedia!</h3>", unsafe_allow_html=True)
+
+# Option to choose between PDF upload, manual input, or translation
+option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
 
 context_text = ""
 
-# Handle different input methods based on the user's choice
-if input_method == "Upload PDF":
-    uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+# Handling different options
+if option == "Upload PDF":
+    uploaded_file = st.file_uploader("Upload a PDF", type="pdf", label_visibility="collapsed")
+
     if uploaded_file:
         with st.spinner("Extracting text from PDF..."):
             pdf_text = extract_text_from_pdf(uploaded_file)
@@ -109,19 +140,35 @@ if input_method == "Upload PDF":
             st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
             context_text = pdf_text
 
-elif input_method == "Enter Text":
+            # Summarize text
+            st.subheader("Summarize the PDF Content")
+            if st.button("Summarize PDF", use_container_width=True):
+                with st.spinner("Summarizing text..."):
+                    summary = summarize_text(pdf_text)
+                st.success("Summary generated!")
+                st.write(summary)
+                st.session_state.history.append(("PDF Upload", summary))
+        else:
+            st.error("Failed to extract text. Please check your PDF file.")
+
+elif option == "Enter Text Manually":
     manual_text = st.text_area("Enter your text below:", height=200)
     if manual_text.strip():
         context_text = manual_text
-        if st.button("Summarize Text"):
+
+        st.subheader("Summarize the Entered Text")
+        if st.button("Summarize Text", use_container_width=True):
             with st.spinner("Summarizing text..."):
                 summary = summarize_text(manual_text)
             st.success("Summary generated!")
             st.write(summary)
             st.session_state.history.append(("Manual Text", summary))
+    else:
+        st.info("Please enter some text to summarize.")
 
-elif input_method == "Upload Audio":
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"])
+elif option == "Upload Audio":
+    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"], label_visibility="collapsed")
+
     if audio_file:
         with st.spinner("Transcribing audio to text..."):
             try:
@@ -132,8 +179,9 @@ elif input_method == "Upload Audio":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-elif input_method == "Upload Image":
-    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+elif option == "Upload Image":
+    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+
     if image_file:
         with st.spinner("Extracting text from image..."):
             image_text = image_to_text(image_file)
@@ -141,7 +189,7 @@ elif input_method == "Upload Image":
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
 
-# Display History on the Left Side (Sidebar)
+# Sidebar for Interaction History with improved layout
 st.sidebar.subheader("Interaction History")
 if st.session_state.history:
     for i, (user_input, response_output) in enumerate(st.session_state.history):
@@ -151,7 +199,7 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Translation Section
+# Translation Section with clean layout
 st.subheader("Translate Text")
 
 # Choose translation direction (English ↔ Chinese)
@@ -159,7 +207,7 @@ target_language = st.selectbox("Choose translation direction:", ("English to Chi
 
 if context_text:
     st.subheader("Translate the Text")
-    if st.button("Translate Text"):
+    if st.button("Translate Text", use_container_width=True):
         with st.spinner("Translating text..."):
             if target_language == "English to Chinese":
                 model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
