@@ -58,7 +58,12 @@ def summarize_text(text):
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
-        return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
+        text = ""
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text
+        return text
 
 # Streamlit App
 st.title("Interactive Chat Application with Text and PDF Summarization")
