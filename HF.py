@@ -109,4 +109,4 @@ with gr.Blocks() as demo:
         code_output = gr.Textbox(label="Generated Code")
         code_input.submit(generate_code_input, code_input, code_output)
 
-demo.launch()
+demo.launch(share=True)
