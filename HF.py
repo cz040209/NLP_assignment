@@ -24,7 +24,7 @@ def load_summarization_model():
 # Initialize BART for Translation (using BART model for English ↔ Chinese)
 @st.cache_resource
 def load_translation_model():
-    model_name = "facebook/bart-large"  # BART model for translation tasks
+    model_name = "Helsinki-NLP/opus-mt-en-zh"  # BART model for English ↔ Chinese translation
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model, tokenizer
@@ -218,11 +218,13 @@ if context_text:
     st.subheader("Translate the Text")
     if st.button("Translate Text", use_container_width=True):
         with st.spinner("Translating text..."):
-            # Load BART model for translation
+            # Load translation model
             translation_model, translation_tokenizer = load_translation_model()
             
             # Prepare the text for translation
             inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            
+            # Generate translation
             translated = translation_model.generate(**inputs)
             translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
@@ -243,11 +245,10 @@ if user_query:
         conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large")
         conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large")
 
-        # Tokenize the input query and generate a response
+        # Generate the response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
-        response_ids = conversational_model.generate(inputs["input_ids"], max_length=100, num_beams=4, early_stopping=True)
-        bot_response = conversational_tokenizer.decode(response_ids[0], skip_special_tokens=True)
+        response = conversational_model.generate(inputs["input_ids"], max_length=200)
+        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
 
-    # Display the response
-    st.markdown(f"**Botify:** {bot_response}")
-    st.session_state.history.append(("User Query", bot_response))
+    st.write(f"Botify: {bot_reply}")
+    st.session_state.history.append(("User Query", bot_reply))
