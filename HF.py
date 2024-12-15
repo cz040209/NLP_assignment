@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, LlamaForCausalLM, LlamaTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -28,17 +28,8 @@ def load_translation_model(model_name):
     tokenizer = MarianTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
-# Load Llama 2 Model and Tokenizer for Conversational and Q&A sections
-@st.cache_resource
-def load_llama_model():
-    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Replace with your Llama 2 model
-    tokenizer = LlamaTokenizer.from_pretrained(model_name, token=HF_TOKEN)
-    model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
-    return tokenizer, model
-
 # Initialize models and tokenizers
 summarization_tokenizer, summarization_model = load_summarization_model()
-llama_tokenizer, llama_model = load_llama_model()
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -242,7 +233,7 @@ if context_text:
         st.write(translated_text)
         st.session_state.history.append(("Translation", translated_text))
 
-# Add a Conversation AI section with Llama 2 model
+# Add a Conversation AI section
 st.subheader("Chat with Botify")
 
 # User input for chat
@@ -251,10 +242,10 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Encode input and generate response using Llama 2 model
-        inputs = llama_tokenizer(user_query, return_tensors="pt")
-        response = llama_model.generate(inputs["input_ids"], max_length=200, num_return_sequences=1)
-        bot_response = llama_tokenizer.decode(response[0], skip_special_tokens=True)
+        # Example: Use a model to generate the response (replace with actual API call)
+        from transformers import pipeline
+        chat_model = pipeline("text-generation", model="gpt2")
+        bot_response = chat_model(user_query, max_length=100, num_return_sequences=1)[0]["generated_text"]
 
     # Display the response
     st.markdown(f"**Botify:** {bot_response}")
