@@ -147,6 +147,11 @@ st.markdown("""
             text-align: center;
             margin-top: 50px;
             margin-bottom: 30px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #282c34;
+            padding: 10px 0;
         }
     </style>
 """, unsafe_allow_html=True)
