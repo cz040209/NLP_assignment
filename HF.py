@@ -5,40 +5,10 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GPT2LMHeadModel, 
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
-from diffusers import StableDiffusionPipeline
 import librosa
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
-
-# Initialize Stable Diffusion model for text-to-image generation
-@st.cache_resource
-def load_stable_diffusion_model():
-    model = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2", use_auth_token=HF_TOKEN)
-    model.to("cuda")  # Use GPU for faster inference (if available)
-    return model
-
-# Function for Text-to-Image (Stable Diffusion)
-def text_to_image(prompt):
-    model = load_stable_diffusion_model()
-    image = model(prompt).images[0]
-    return image
-
-# Add the option for text-to-image generation
-option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image", "Generate Image from Text"))
-
-context_text = ""
-
-if option == "Generate Image from Text":
-    text_prompt = st.text_area("Enter a description to generate an image:", height=200)
-    
-    if text_prompt.strip():
-        st.subheader("Generated Image")
-        with st.spinner("Generating image..."):
-            image = text_to_image(text_prompt)  # Generate the image using the text prompt
-            st.image(image, caption="Generated Image", use_column_width=True)  # Display the generated image
-    else:
-        st.info("Please enter a description to generate an image.")
 
 # Set up the BLIP model for image-to-text
 def load_blip_model():
