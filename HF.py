@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-from transformers import LlamaForCausalLM, LlamaTokenizer
+from transformers import pipeline
 import torch
 import pdfplumber
 import speech_recognition as sr  # For audio-to-text functionality
@@ -13,33 +13,15 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Users\chenz\Downloads\tesseract-ocr
 # Your Hugging Face token for Llama2
 HF_TOKEN = "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"  # Replace with your token
 
-# Load Llama 2 Model and Tokenizer for Conversational AI (Chatbot)
+# Use Hugging Face pipeline for conversational AI (Chatbot)
 @st.cache_resource
-def load_llama2_conversational_model():
+def load_llama2_conversational_pipeline():
     model_name = "meta-llama/Llama-2-7b-hf"  # Replace with the appropriate Llama 2 model name
-    tokenizer = LlamaTokenizer.from_pretrained(model_name)
-    model = LlamaForCausalLM.from_pretrained(model_name)
-    return tokenizer, model
+    conversation_pipeline = pipeline("text-generation", model=model_name, tokenizer=model_name, device=0 if torch.cuda.is_available() else -1)
+    return conversation_pipeline
 
-# Initialize the conversational model and tokenizer
-conversational_tokenizer, conversational_model = load_llama2_conversational_model()
-
-# Function to split text into manageable chunks for summarization
-def split_text(text, max_tokens=1024):
-    words = text.split()
-    chunks = []
-    current_chunk = []
-
-    for word in words:
-        current_chunk.append(word)
-        if len(current_chunk) >= max_tokens:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = []
-
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
-
-    return chunks
+# Initialize the conversational pipeline
+conversation_pipeline = load_llama2_conversational_pipeline()
 
 # Function to generate conversational responses (Chatbot)
 def generate_conversation_response(user_input, context_text=""):
@@ -50,13 +32,10 @@ def generate_conversation_response(user_input, context_text=""):
     if context_text:
         prompt = f"{context_text}\n{prompt}"
 
-    # Tokenize the input prompt
-    inputs = conversational_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=1024)
-    outputs = conversational_model.generate(
-        inputs["input_ids"], max_length=150, num_beams=4, early_stopping=True
-    )
+    # Generate the response using the pipeline
+    result = conversation_pipeline(prompt, max_length=150, num_return_sequences=1, num_beams=4, early_stopping=True)
     
-    response = conversational_tokenizer.decode(outputs[0], skip_special_tokens=True)
+    response = result[0]["generated_text"]
     return response
 
 # Function to extract text from PDF
@@ -105,42 +84,42 @@ if 'history' not in st.session_state:
     st.session_state.history = []
 
 # Custom CSS for a more premium look
-st.markdown("""
-    <style>
-        .css-1d391kg {
-            background-color: #1c1f24;  /* Dark background */
-            color: white;
-            font-family: 'Arial', sans-serif;
-        }
-        .css-1v0m2ju {
-            background-color: #282c34;  /* Slightly lighter background */
-        }
-        .css-13ya6yb {
-            background-color: #61dafb;  /* Button color */
-            border-radius: 5px;
-            padding: 10px 20px;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .css-10trblm {
-            font-size: 18px;
-            font-weight: bold;
-            color: #282c34;
-        }
-        .css-3t9iqy {
-            color: #61dafb;
-            font-size: 20px;
-        }
-        .botify-title {
-            font-family: 'Arial', sans-serif;
-            font-size: 48px;
-            font-weight: bold;
-            color: #61dafb;
-            text-align: center;
-            margin-top: 50px;
-            margin-bottom: 30px;
-        }
+st.markdown(""" 
+    <style> 
+        .css-1d391kg { 
+            background-color: #1c1f24;  
+            color: white; 
+            font-family: 'Arial', sans-serif; 
+        } 
+        .css-1v0m2ju { 
+            background-color: #282c34;  
+        } 
+        .css-13ya6yb { 
+            background-color: #61dafb;  
+            border-radius: 5px; 
+            padding: 10px 20px; 
+            color: white; 
+            font-size: 16px; 
+            font-weight: bold; 
+        } 
+        .css-10trblm { 
+            font-size: 18px; 
+            font-weight: bold; 
+            color: #282c34; 
+        } 
+        .css-3t9iqy { 
+            color: #61dafb; 
+            font-size: 20px; 
+        } 
+        .botify-title { 
+            font-family: 'Arial', sans-serif; 
+            font-size: 48px; 
+            font-weight: bold; 
+            color: #61dafb; 
+            text-align: center; 
+            margin-top: 50px; 
+            margin-bottom: 30px; 
+        } 
     </style>
 """, unsafe_allow_html=True)
 
