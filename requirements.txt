@@ -14,5 +14,4 @@ tokenizers
 accelerate
 scipy
 numpy
-PyTorch
 sacremoses
