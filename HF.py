@@ -207,34 +207,28 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Translation Section with automatic language detection
+# Translation Section with clean layout
 st.subheader("Translate Text")
+
+# Choose translation direction (English ↔ Chinese)
+target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
 
 if context_text:
     st.subheader("Translate the Text")
-    if st.button("Auto-Detect and Translate Text", use_container_width=True):
-        with st.spinner("Detecting language and translating..."):
-            try:
-                detected_language = detect(context_text)  # Detect the language (e.g., 'en' or 'zh')
-                if detected_language == "en":
-                    model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
-                elif detected_language == "zh":
-                    model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
-                else:
-                    st.error("Unsupported language detected. Only English and Chinese are supported.")
-                return
+    if st.button("Translate Text", use_container_width=True):
+        with st.spinner("Translating text..."):
+            if target_language == "English to Chinese":
+                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
+            else:
+                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
 
-                translation_model, translation_tokenizer = load_translation_model(model_name)
+            translation_model, translation_tokenizer = load_translation_model(model_name)
+            
+            # Translate the text
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
-                # Translate the text
-                inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-                translated = translation_model.generate(**inputs)
-                translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
-
-                st.success(f"Detected Language: {detected_language.upper()}")
-                st.write(f"Translated text ({detected_language.upper()}):")
-                st.write(translated_text)
-                st.session_state.history.append(("Automatic Translation", translated_text))
-
-            except Exception as e:
-                st.error(f"Error during translation: {e}")
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
+        st.session_state.history.append(("Translation", translated_text))
