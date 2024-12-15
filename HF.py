@@ -82,8 +82,8 @@ def extract_text_from_pdf(pdf_file):
 # Function for Audio-to-Text using Wav2Vec 2.0
 def audio_to_text_wav2vec(audio_file):
     # Load Wav2Vec2 model and processor
-    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-large-960h")
-    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h")
+    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-large-960h-lv60-self")
+    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h-lv60-self")
 
     # Read audio file and convert to correct format
     audio, rate = librosa.load(audio_file, sr=16000)  # 16 kHz required by Wav2Vec2
