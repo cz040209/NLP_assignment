@@ -1,42 +1,69 @@
 import os
 import streamlit as st
-from transformers import pipeline
-import torch
 import pdfplumber
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
+import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
 import pytesseract  # For OCR (Image to Text)
 
-# Set the path to the tesseract executable (required for image-to-text conversion)
+# Set the path to the tesseract executable
 pytesseract.pytesseract.tesseract_cmd = r'C:\Users\chenz\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111\tesseract.exe'
 
-# Your Hugging Face token for Llama2
-HF_TOKEN = "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"  # Replace with your token
+# Your Hugging Face token
+HF_TOKEN = "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"  # Replace with your token
 
-# Use Hugging Face pipeline for conversational AI (Chatbot)
+# Load Summarization Model and Tokenizer
 @st.cache_resource
-def load_llama2_conversational_pipeline():
-    model_name = "meta-llama/Llama-2-13b-chat-hf"  # Replace with the appropriate Llama 2 model name
-    conversation_pipeline = pipeline("text-generation", model=model_name, tokenizer=model_name, device=0 if torch.cuda.is_available() else -1)
-    return conversation_pipeline
+def load_summarization_model():
+    model_name = "facebook/bart-large-cnn"  # Replace with your model
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
+    return tokenizer, model
 
-# Initialize the conversational pipeline
-conversation_pipeline = load_llama2_conversational_pipeline()
+# Load MarianMT Model and Tokenizer for Translation (Chinese-English)
+@st.cache_resource
+def load_translation_model(model_name):
+    model = MarianMTModel.from_pretrained(model_name)
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    return model, tokenizer
 
-# Function to generate conversational responses (Chatbot)
-def generate_conversation_response(user_input, context_text=""):
-    # Prepare the input to the model
-    prompt = f"Human: {user_input}\nAI:"
+# Initialize models and tokenizers
+summarization_tokenizer, summarization_model = load_summarization_model()
 
-    # Concatenate the context (if any)
-    if context_text:
-        prompt = f"{context_text}\n{prompt}"
+# Function to split text into manageable chunks for summarization
+def split_text(text, max_tokens=1024):
+    words = text.split()
+    chunks = []
+    current_chunk = []
 
-    # Generate the response using the pipeline
-    result = conversation_pipeline(prompt, max_length=150, num_return_sequences=1, num_beams=4, early_stopping=True)
-    
-    response = result[0]["generated_text"]
-    return response
+    for word in words:
+        current_chunk.append(word)
+        if len(current_chunk) >= max_tokens:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = []
+
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+
+    return chunks
+
+# Function to summarize text
+def summarize_text(text):
+    max_tokens = 1024  # Token limit for the model
+    chunks = split_text(text, max_tokens)
+
+    summaries = []
+    for chunk in chunks:
+        inputs = summarization_tokenizer(chunk, return_tensors="pt", truncation=True, padding=True, max_length=1024)
+        summary_ids = summarization_model.generate(
+            inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True
+        )
+        summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        summaries.append(summary)
+
+    final_summary = " ".join(summaries)
+    return final_summary if summaries else "No summary available."
 
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
@@ -57,69 +84,47 @@ def image_to_text(image_file):
     text = pytesseract.image_to_string(image)
     return text
 
-# Function to summarize extracted text
-def summarize_text(text, max_tokens=1024):
-    # Split the text into chunks to avoid exceeding token limit for Llama2
-    chunks = split_text(text, max_tokens=max_tokens)
-    
-    summary = ""
-    for chunk in chunks:
-        # Add each chunk to the prompt for summarization
-        prompt = f"Summarize the following text:\n\n{chunk}"
-        
-        # Tokenize and generate the summary
-        inputs = conversational_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=1024)
-        summary_output = conversational_model.generate(
-            inputs["input_ids"], max_length=150, num_beams=4, early_stopping=True
-        )
-        
-        # Decode the output and append to the summary
-        summary += conversational_tokenizer.decode(summary_output[0], skip_special_tokens=True)
-        summary += "\n"
-
-    return summary
-
 # History storage - will store interactions as tuples (user_input, response_output)
 if 'history' not in st.session_state:
     st.session_state.history = []
 
 # Custom CSS for a more premium look
-st.markdown(""" 
-    <style> 
-        .css-1d391kg { 
-            background-color: #1c1f24;  
-            color: white; 
-            font-family: 'Arial', sans-serif; 
-        } 
-        .css-1v0m2ju { 
-            background-color: #282c34;  
-        } 
-        .css-13ya6yb { 
-            background-color: #61dafb;  
-            border-radius: 5px; 
-            padding: 10px 20px; 
-            color: white; 
-            font-size: 16px; 
-            font-weight: bold; 
-        } 
-        .css-10trblm { 
-            font-size: 18px; 
-            font-weight: bold; 
-            color: #282c34; 
-        } 
-        .css-3t9iqy { 
-            color: #61dafb; 
-            font-size: 20px; 
-        } 
-        .botify-title { 
-            font-family: 'Arial', sans-serif; 
-            font-size: 48px; 
-            font-weight: bold; 
-            color: #61dafb; 
-            text-align: center; 
-            margin-top: 50px; 
-            margin-bottom: 30px; 
-        } 
+st.markdown("""
+    <style>
+        .css-1d391kg {
+            background-color: #1c1f24;  /* Dark background */
+            color: white;
+            font-family: 'Arial', sans-serif;
+        }
+        .css-1v0m2ju {
+            background-color: #282c34;  /* Slightly lighter background */
+        }
+        .css-13ya6yb {
+            background-color: #61dafb;  /* Button color */
+            border-radius: 5px;
+            padding: 10px 20px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .css-10trblm {
+            font-size: 18px;
+            font-weight: bold;
+            color: #282c34;
+        }
+        .css-3t9iqy {
+            color: #61dafb;
+            font-size: 20px;
+        }
+        .botify-title {
+            font-family: 'Arial', sans-serif;
+            font-size: 48px;
+            font-weight: bold;
+            color: #61dafb;
+            text-align: center;
+            margin-top: 50px;
+            margin-bottom: 30px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -143,10 +148,31 @@ if option == "Upload PDF":
             st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
             context_text = pdf_text
 
+            # Summarize text
+            st.subheader("Summarize the PDF Content")
+            if st.button("Summarize PDF", use_container_width=True):
+                with st.spinner("Summarizing text..."):
+                    summary = summarize_text(pdf_text)
+                st.success("Summary generated!")
+                st.write(summary)
+                st.session_state.history.append(("PDF Upload", summary))
+        else:
+            st.error("Failed to extract text. Please check your PDF file.")
+
 elif option == "Enter Text Manually":
     manual_text = st.text_area("Enter your text below:", height=200)
     if manual_text.strip():
         context_text = manual_text
+
+        st.subheader("Summarize the Entered Text")
+        if st.button("Summarize Text", use_container_width=True):
+            with st.spinner("Summarizing text..."):
+                summary = summarize_text(manual_text)
+            st.success("Summary generated!")
+            st.write(summary)
+            st.session_state.history.append(("Manual Text", summary))
+    else:
+        st.info("Please enter some text to summarize.")
 
 elif option == "Upload Audio":
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"], label_visibility="collapsed")
@@ -157,7 +183,7 @@ elif option == "Upload Audio":
                 transcription = audio_to_text(audio_file)
                 st.success("Transcription successful!")
                 st.write(transcription)
-                context_text = transcription
+                st.session_state.history.append(("Audio Upload", transcription))
             except Exception as e:
                 st.error(f"Error: {e}")
 
@@ -169,28 +195,7 @@ elif option == "Upload Image":
             image_text = image_to_text(image_file)
             st.success("Text extracted from image!")
             st.write(image_text)
-            context_text = image_text
-
-# Summarize extracted text if available
-if context_text:
-    summarize_button = st.button("Summarize Extracted Text")
-    
-    if summarize_button:
-        with st.spinner("Summarizing text..."):
-            summary = summarize_text(context_text)
-        st.success("Summary generated!")
-        st.text_area("Summary", summary, height=200)
-
-# Handling the conversational part
-st.subheader("Ask the AI a Question")
-
-if context_text:
-    user_input = st.text_input("Your Question", "")
-
-    if user_input:
-        response = generate_conversation_response(user_input, context_text)
-        st.write(f"AI: {response}")
-        st.session_state.history.append(("User Question", response))
+            st.session_state.history.append(("Image Upload", image_text))
 
 # Sidebar for Interaction History with improved layout
 st.sidebar.subheader("Interaction History")
@@ -201,3 +206,47 @@ if st.session_state.history:
         st.sidebar.write(f"**Response Output:** {response_output}")
 else:
     st.sidebar.write("No history yet.")
+
+# Translation Section with clean layout
+st.subheader("Translate Text")
+
+# Choose translation direction (English ↔ Chinese)
+target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
+
+if context_text:
+    st.subheader("Translate the Text")
+    if st.button("Translate Text", use_container_width=True):
+        with st.spinner("Translating text..."):
+            if target_language == "English to Chinese":
+                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
+            else:
+                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
+
+            translation_model, translation_tokenizer = load_translation_model(model_name)
+            
+            # Translate the text
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
+        st.session_state.history.append(("Translation", translated_text))
+
+# Add a Conversation AI section
+st.subheader("Chat with Botify")
+
+# User input for chat
+user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
+
+# Process the query if entered
+if user_query:
+    with st.spinner("Generating response..."):
+        # Example: Use a model to generate the response (replace with actual API call)
+        from transformers import pipeline
+        chat_model = pipeline("text-generation", model="gpt2")
+        bot_response = chat_model(user_query, max_length=100, num_return_sequences=1)[0]["generated_text"]
+
+    # Display the response
+    st.markdown(f"**Botify:** {bot_response}")
+    st.session_state.history.append(("User Query", bot_response))
