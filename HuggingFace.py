@@ -224,7 +224,7 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Translation Section with actual logic
+# Translation Section with clean layout
 st.subheader("Translate Text")
 
 # Choose translation direction (English ↔ Chinese)
