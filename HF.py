@@ -47,7 +47,7 @@ def split_text(text, max_tokens=1024):
 
     return chunks
 
-# Function to summarize text
+# Summarize text function
 def summarize_text(text):
     max_tokens = 1024  # Token limit for the model
     chunks = split_text(text, max_tokens)
@@ -55,9 +55,7 @@ def summarize_text(text):
     summaries = []
     for chunk in chunks:
         inputs = summarization_tokenizer(chunk, return_tensors="pt", truncation=True, padding=True, max_length=1024)
-        summary_ids = summarization_model.generate(
-            inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True
-        )
+        summary_ids = summarization_model.generate(inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True)
         summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         summaries.append(summary)
 
@@ -235,7 +233,7 @@ st.subheader("Chat with Botify")
 # User input for chat
 user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
 
-# Process the query if entered
+# Chat with Botify function
 if user_query:
     with st.spinner("Generating response..."):
         # Load model based on selection
@@ -243,7 +241,7 @@ if user_query:
         conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
 
         # Generate the response
-        inputs = conversational_tokenizer(user_query, return_tensors="pt")
+        inputs = conversational_tokenizer(user_query, return_tensors="pt")  # Corrected here
         response = conversational_model.generate(inputs["input_ids"], max_length=200)
         bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
 
