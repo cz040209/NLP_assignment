@@ -20,8 +20,8 @@ def load_blip_model():
 def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
-    elif model_choice == "Gemini":
-        model_name = "google/gemini-1"  # Use the correct Gemini model here (adjust as per availability)
+    elif model_choice == "T5":
+        model_name = "t5-large"  # T5 model for summarization
     elif model_choice == "Llama2":
         model_name = "meta-llama/Llama-2-7b-hf"  # Llama 2 model for summarization
     else:
@@ -37,10 +37,10 @@ def load_summarization_model(model_choice="BART"):
     return tokenizer, model
 
 # Initialize models and tokenizers
-model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "Llama2"))
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama2"))
 
 # Ensure a model is chosen before proceeding
-if model_choice not in ["BART", "Gemini", "Llama2"]:
+if model_choice not in ["BART", "T5", "Llama2"]:
     st.warning("Please select a valid model for summarization and conversation.")
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
@@ -231,21 +231,10 @@ st.subheader("Translate Text")
 target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
 
 if context_text:
-    st.subheader("Translate the Text")
-    if st.button("Translate Text", use_container_width=True):
-        with st.spinner("Translating text..."):
-            # Load translation model
-            translation_model, translation_tokenizer = load_summarization_model(model_choice=model_choice)  # Can select Gemini for translation
-            # Prepare the text for translation
-            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-            
-            # Generate translation
-            translated = translation_model.generate(**inputs)
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
-
-        st.success(f"Translated text ({target_language}):")
-        st.write(translated_text)
-        st.session_state.history.append(("Translation", translated_text))
+    st.subheader("Translated Text")
+    # Implement your translation logic here based on the target language
+    # For now, we can simply show the selected text without actual translation for testing purposes.
+    st.write(f"Translated Text: {context_text}")
 
 # Add a Conversation AI section
 st.subheader("Chat with Botify")
