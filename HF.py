@@ -1,17 +1,19 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GPT2LMHeadModel, GPT2Tokenizer, BlipProcessor, BlipForConditionalGeneration
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
-import pytesseract  # For OCR (Image to Text)
-
-# Set the path to the tesseract executable
-pytesseract.pytesseract.tesseract_cmd = r'C:\Users\chenz\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111\tesseract.exe'
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
+
+# Set up the BLIP model for image-to-text
+def load_blip_model():
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+    return processor, model
 
 # Load Summarization Model and Tokenizer
 @st.cache_resource
@@ -84,11 +86,14 @@ def audio_to_text(audio_file):
         audio_data = recognizer.record(source)
     return recognizer.recognize_google(audio_data)
 
-# Function for Image to Text (OCR)
+# Function for Image to Text (BLIP)
 def image_to_text(image_file):
-    image = Image.open(image_file)
-    text = pytesseract.image_to_string(image)
-    return text
+    processor, model = load_blip_model()
+    image = Image.open(image_file).convert("RGB")
+    inputs = processor(images=image, return_tensors="pt")
+    out = model.generate(**inputs)
+    description = processor.decode(out[0], skip_special_tokens=True)
+    return description
 
 # History storage - will store interactions as tuples (user_input, response_output)
 if 'history' not in st.session_state:
