@@ -16,3 +16,4 @@ scipy
 numpy
 sacremoses
 librosa
+diffusers
