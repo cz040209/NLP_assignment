@@ -21,7 +21,7 @@ def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
     elif model_choice == "Gemini":
-        model_name = "google/flan-t5-large"  # Example Gemini model
+        model_name = "google/gemini-1"  # Use the correct Gemini model here (adjust as per availability)
     elif model_choice == "Llama2":
         model_name = "meta-llama/Llama-2-7b-hf"  # Llama 2 model for summarization
     else:
@@ -39,9 +39,9 @@ def load_summarization_model(model_choice="BART"):
 # Initialize models and tokenizers
 model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "Llama2"))
 
-# Ensure the user has selected a model
-if model_choice is None:
-    st.error("Please select a model for summarization.")
+# Ensure a model is chosen before proceeding
+if model_choice not in ["BART", "Gemini", "Llama2"]:
+    st.warning("Please select a valid model for summarization and conversation.")
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
@@ -175,8 +175,6 @@ if option == "Upload PDF":
                 st.session_state.history.append(("PDF Upload", summary))
         else:
             st.error("Failed to extract text. Please check your PDF file.")
-    else:
-        st.info("Please upload a PDF file.")
 
 elif option == "Enter Text Manually":
     manual_text = st.text_area("Enter your text below:", height=200)
@@ -205,8 +203,6 @@ elif option == "Upload Audio":
                 st.session_state.history.append(("Audio Upload", transcription))
             except Exception as e:
                 st.error(f"Error: {e}")
-    else:
-        st.info("Please upload an audio file.")
 
 elif option == "Upload Image":
     image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
@@ -217,10 +213,8 @@ elif option == "Upload Image":
             st.success("Text extracted from image!")
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
-    else:
-        st.info("Please upload an image file.")
 
-# Sidebar for Interaction History
+# Sidebar for Interaction History with improved layout
 st.sidebar.subheader("Interaction History")
 if st.session_state.history:
     for i, (user_input, response_output) in enumerate(st.session_state.history):
@@ -230,7 +224,30 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Chat section
+# Translation Section with clean layout
+st.subheader("Translate Text")
+
+# Choose translation direction (English ↔ Chinese)
+target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
+
+if context_text:
+    st.subheader("Translate the Text")
+    if st.button("Translate Text", use_container_width=True):
+        with st.spinner("Translating text..."):
+            # Load translation model
+            translation_model, translation_tokenizer = load_summarization_model(model_choice=model_choice)  # Can select Gemini for translation
+            # Prepare the text for translation
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            
+            # Generate translation
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
+        st.session_state.history.append(("Translation", translated_text))
+
+# Add a Conversation AI section
 st.subheader("Chat with Botify")
 
 # User input for chat
@@ -239,9 +256,8 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Use the selected model for conversational response
-        conversational_tokenizer = summarization_tokenizer  # Use the same tokenizer as for summarization
-        conversational_model = summarization_model  # Use the same model for conversation as chosen by user
+        # Load the conversational model based on user selection
+        conversational_tokenizer, conversational_model = load_summarization_model(model_choice=model_choice)
 
         # Tokenize user query and generate response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
