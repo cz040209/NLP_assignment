@@ -14,7 +14,7 @@ HF_TOKEN = "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"  # Replace with your token
 # Initialize Stable Diffusion model for text-to-image generation
 @st.cache_resource
 def load_stable_diffusion_model():
-    model = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v-1-4-original", use_auth_token=HF_TOKEN)
+    model = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2", use_auth_token=HF_TOKEN)
     model.to("cuda")  # Use GPU for faster inference (if available)
     return model
 
