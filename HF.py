@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -16,20 +16,22 @@ HF_TOKEN = "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"  # Replace with your token
 # Load Summarization Model and Tokenizer
 @st.cache_resource
 def load_summarization_model():
-    model_name = "facebook/bart-large-cnn"  # Replace with your model
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
+    model_name = "facebook/bart-large-cnn"
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
     return tokenizer, model
 
-# Load MarianMT Model and Tokenizer for Translation (Chinese-English)
+# Load Llama 2 Model for Q&A
 @st.cache_resource
-def load_translation_model(model_name):
-    model = MarianMTModel.from_pretrained(model_name)
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    return model, tokenizer
+def load_llama2_model():
+    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Replace with your preferred Llama 2 variant
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
+    model = AutoModelForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
+    return tokenizer, model
 
 # Initialize models and tokenizers
 summarization_tokenizer, summarization_model = load_summarization_model()
+llama2_tokenizer, llama2_model = load_llama2_model()
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -65,24 +67,14 @@ def summarize_text(text):
     final_summary = " ".join(summaries)
     return final_summary if summaries else "No summary available."
 
-# Function to extract text from PDF
-def extract_text_from_pdf(pdf_file):
-    with pdfplumber.open(pdf_file) as pdf:
-        return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
-
-# Function for Audio-to-Text (Speech Recognition)
-def audio_to_text(audio_file):
-    recognizer = sr.Recognizer()
-    audio = sr.AudioFile(audio_file)
-    with audio as source:
-        audio_data = recognizer.record(source)
-    return recognizer.recognize_google(audio_data)
-
-# Function for Image to Text (OCR)
-def image_to_text(image_file):
-    image = Image.open(image_file)
-    text = pytesseract.image_to_string(image)
-    return text
+# Function for Q&A using Llama 2
+def chat_with_llama2(query):
+    inputs = llama2_tokenizer(query, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    outputs = llama2_model.generate(
+        inputs["input_ids"], max_length=150, num_beams=4, early_stopping=True
+    )
+    response = llama2_tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response
 
 # History storage - will store interactions as tuples (user_input, response_output)
 if 'history' not in st.session_state:
@@ -95,26 +87,6 @@ st.markdown("""
             background-color: #1c1f24;  /* Dark background */
             color: white;
             font-family: 'Arial', sans-serif;
-        }
-        .css-1v0m2ju {
-            background-color: #282c34;  /* Slightly lighter background */
-        }
-        .css-13ya6yb {
-            background-color: #61dafb;  /* Button color */
-            border-radius: 5px;
-            padding: 10px 20px;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .css-10trblm {
-            font-size: 18px;
-            font-weight: bold;
-            color: #282c34;
-        }
-        .css-3t9iqy {
-            color: #61dafb;
-            font-size: 20px;
         }
         .botify-title {
             font-family: 'Arial', sans-serif;
@@ -131,73 +103,23 @@ st.markdown("""
 # Botify Title
 st.markdown('<h1 class="botify-title">Botify</h1>', unsafe_allow_html=True)
 
-# Option to choose between PDF upload, manual input, or translation
-option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
+# Chat with Botify (Llama 2)
+st.subheader("Chat with Botify")
 
-context_text = ""
+# User input for chat
+user_query = st.text_input("Ask something:", key="chat_input", placeholder="Type your query here...")
 
-# Handling different options
-if option == "Upload PDF":
-    uploaded_file = st.file_uploader("Upload a PDF", type="pdf", label_visibility="collapsed")
+# Process the query if entered
+if user_query:
+    with st.spinner("Botify is thinking..."):
+        try:
+            bot_response = chat_with_llama2(user_query)
+            st.markdown(f"**Botify:** {bot_response}")
+            st.session_state.history.append((user_query, bot_response))
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
 
-    if uploaded_file:
-        with st.spinner("Extracting text from PDF..."):
-            pdf_text = extract_text_from_pdf(uploaded_file)
-        if pdf_text:
-            st.success("Text extracted successfully!")
-            st.text_area("Extracted Text (Preview)", pdf_text[:2000], height=200)
-            context_text = pdf_text
-
-            # Summarize text
-            st.subheader("Summarize the PDF Content")
-            if st.button("Summarize PDF", use_container_width=True):
-                with st.spinner("Summarizing text..."):
-                    summary = summarize_text(pdf_text)
-                st.success("Summary generated!")
-                st.write(summary)
-                st.session_state.history.append(("PDF Upload", summary))
-        else:
-            st.error("Failed to extract text. Please check your PDF file.")
-
-elif option == "Enter Text Manually":
-    manual_text = st.text_area("Enter your text below:", height=200)
-    if manual_text.strip():
-        context_text = manual_text
-
-        st.subheader("Summarize the Entered Text")
-        if st.button("Summarize Text", use_container_width=True):
-            with st.spinner("Summarizing text..."):
-                summary = summarize_text(manual_text)
-            st.success("Summary generated!")
-            st.write(summary)
-            st.session_state.history.append(("Manual Text", summary))
-    else:
-        st.info("Please enter some text to summarize.")
-
-elif option == "Upload Audio":
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"], label_visibility="collapsed")
-
-    if audio_file:
-        with st.spinner("Transcribing audio to text..."):
-            try:
-                transcription = audio_to_text(audio_file)
-                st.success("Transcription successful!")
-                st.write(transcription)
-                st.session_state.history.append(("Audio Upload", transcription))
-            except Exception as e:
-                st.error(f"Error: {e}")
-
-elif option == "Upload Image":
-    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-
-    if image_file:
-        with st.spinner("Extracting text from image..."):
-            image_text = image_to_text(image_file)
-            st.success("Text extracted from image!")
-            st.write(image_text)
-            st.session_state.history.append(("Image Upload", image_text))
-
-# Sidebar for Interaction History with improved layout
+# Sidebar for Interaction History
 st.sidebar.subheader("Interaction History")
 if st.session_state.history:
     for i, (user_input, response_output) in enumerate(st.session_state.history):
@@ -206,49 +128,3 @@ if st.session_state.history:
         st.sidebar.write(f"**Response Output:** {response_output}")
 else:
     st.sidebar.write("No history yet.")
-
-# Translation Section with clean layout
-st.subheader("Translate Text")
-
-# Choose translation direction (English ↔ Chinese)
-target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
-
-if context_text:
-    st.subheader("Translate the Text")
-    if st.button("Translate Text", use_container_width=True):
-        with st.spinner("Translating text..."):
-            if target_language == "English to Chinese":
-                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
-            else:
-                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
-
-            translation_model, translation_tokenizer = load_translation_model(model_name)
-            
-            # Translate the text
-            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-            translated = translation_model.generate(**inputs)
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
-
-        st.success(f"Translated text ({target_language}):")
-        st.write(translated_text)
-        st.session_state.history.append(("Translation", translated_text))
-
-# Add a Conversation AI section
-st.subheader("Chat with Botify")
-
-# User input for chat
-user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
-
-# Process the query if entered
-if user_query:
-    with st.spinner("Generating response..."):
-        # Example: Use a model to generate the response (replace with actual API call)
-        from transformers import pipeline
-        chat_model = pipeline("text-generation", model="gpt2")
-        bot_response = chat_model(user_query, max_length=100, num_return_sequences=1)[0]["generated_text"]
-
-    # Display the response
-    st.markdown(f"**Botify:** {bot_response}")
-    st.session_state.history.append(("User Query", bot_response))
-
-
