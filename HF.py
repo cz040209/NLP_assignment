@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -21,11 +21,12 @@ def load_summarization_model():
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
     return tokenizer, model
 
-# Load MarianMT Model and Tokenizer for Translation (Chinese-English)
+# Initialize BART for Translation (using BART model for English ↔ Chinese)
 @st.cache_resource
-def load_translation_model(model_name):
-    model = MarianMTModel.from_pretrained(model_name)
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
+def load_translation_model():
+    model_name = "facebook/bart-large"  # BART model for translation tasks
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
 # Initialize models and tokenizers
@@ -217,14 +218,10 @@ if context_text:
     st.subheader("Translate the Text")
     if st.button("Translate Text", use_container_width=True):
         with st.spinner("Translating text..."):
-            if target_language == "English to Chinese":
-                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
-            else:
-                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
-
-            translation_model, translation_tokenizer = load_translation_model(model_name)
+            # Load BART model for translation
+            translation_model, translation_tokenizer = load_translation_model()
             
-            # Translate the text
+            # Prepare the text for translation
             inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
             translated = translation_model.generate(**inputs)
             translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
