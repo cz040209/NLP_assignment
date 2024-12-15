@@ -11,7 +11,7 @@ import pytesseract  # For OCR (Image to Text)
 pytesseract.pytesseract.tesseract_cmd = r'C:\Users\chenz\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111\tesseract.exe'
 
 # Your Hugging Face token for Llama2
-HF_TOKEN = "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"  # Replace with your token
+HF_TOKEN = "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"  # Replace with your token
 
 # Use Hugging Face pipeline for conversational AI (Chatbot)
 @st.cache_resource
