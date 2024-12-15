@@ -242,10 +242,14 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Example: Use a model to generate the response (replace with actual API call)
-        from transformers import pipeline
-        chat_model = pipeline("text-generation", model="gpt2")
-        bot_response = chat_model(user_query, max_length=100, num_return_sequences=1)[0]["generated_text"]
+        # Load BART model for conversation
+        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large")
+        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large")
+
+        # Tokenize the input query and generate a response
+        inputs = conversational_tokenizer(user_query, return_tensors="pt")
+        response_ids = conversational_model.generate(inputs["input_ids"], max_length=100, num_beams=4, early_stopping=True)
+        bot_response = conversational_tokenizer.decode(response_ids[0], skip_special_tokens=True)
 
     # Display the response
     st.markdown(f"**Botify:** {bot_response}")
