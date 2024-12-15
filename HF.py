@@ -15,22 +15,20 @@ HF_TOKEN = "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"  # Replace with your token
 
 # Load Summarization Model and Tokenizer
 @st.cache_resource
-def load_summarization_model():
-    model_name = "facebook/bart-large-cnn"  # Replace with your model
+def load_summarization_model(model_choice="BART"):
+    if model_choice == "BART":
+        model_name = "facebook/bart-large-cnn"  # BART model for summarization
+    else:
+        model_name = "google/flan-t5-large"  # Example Gemini model (use correct model name for Gemini)
+    
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
     return tokenizer, model
 
-# Initialize BART for Translation (using BART model for English ↔ Chinese)
-@st.cache_resource
-def load_translation_model():
-    model_name = "Helsinki-NLP/opus-mt-en-zh"  # BART model for English ↔ Chinese translation
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    return model, tokenizer
-
 # Initialize models and tokenizers
-summarization_tokenizer, summarization_model = load_summarization_model()
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini"))
+
+summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -219,8 +217,7 @@ if context_text:
     if st.button("Translate Text", use_container_width=True):
         with st.spinner("Translating text..."):
             # Load translation model
-            translation_model, translation_tokenizer = load_translation_model()
-            
+            translation_model, translation_tokenizer = load_summarization_model(model_choice="BART")  # Can select Gemini for translation
             # Prepare the text for translation
             inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
             
@@ -241,9 +238,9 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Load BART model for conversation
-        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large")
-        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large")
+        # Load model based on selection
+        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
 
         # Generate the response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
