@@ -1,10 +1,11 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GPT2LMHeadModel, GPT2Tokenizer, BlipProcessor, BlipForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GPT2LMHeadModel, GPT2Tokenizer, BlipProcessor, BlipForConditionalGeneration, Wav2Vec2ForCTC, Wav2Vec2Processor
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
+import librosa
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
@@ -78,13 +79,24 @@ def extract_text_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         return " ".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
-# Function for Audio-to-Text (Speech Recognition)
-def audio_to_text(audio_file):
-    recognizer = sr.Recognizer()
-    audio = sr.AudioFile(audio_file)
-    with audio as source:
-        audio_data = recognizer.record(source)
-    return recognizer.recognize_google(audio_data)
+# Function for Audio-to-Text using Wav2Vec 2.0
+def audio_to_text_wav2vec(audio_file):
+    # Load Wav2Vec2 model and processor
+    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-large-960h")
+    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h")
+
+    # Read audio file and convert to correct format
+    audio, rate = librosa.load(audio_file, sr=16000)  # 16 kHz required by Wav2Vec2
+    input_values = processor(audio, return_tensors="pt").input_values  # Prepare input for model
+
+    # Perform speech recognition (audio-to-text)
+    with torch.no_grad():
+        logits = model(input_values).logits
+    predicted_ids = torch.argmax(logits, dim=-1)
+    
+    # Decode the output
+    transcription = processor.decode(predicted_ids[0])
+    return transcription
 
 # Function for Image to Text (BLIP)
 def image_to_text(image_file):
@@ -191,7 +203,7 @@ elif option == "Upload Audio":
     if audio_file:
         with st.spinner("Transcribing audio to text..."):
             try:
-                transcription = audio_to_text(audio_file)
+                transcription = audio_to_text_wav2vec(audio_file)
                 st.success("Transcription successful!")
                 st.write(transcription)
                 st.session_state.history.append(("Audio Upload", transcription))
@@ -251,13 +263,12 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 if user_query:
     with st.spinner("Generating response..."):
         # Load model based on selection
-        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2")
-        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2")
-
-        # Generate the response
+        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2", use_auth_token=HF_TOKEN)
+        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2", use_auth_token=HF_TOKEN)
+        
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
-        response = conversational_model.generate(inputs["input_ids"], max_length=200)
-        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
+        response = conversational_model.generate(inputs["input_ids"], max_length=150)
+        chatbot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
 
-    st.write(f"Botify: {bot_reply}")
-    st.session_state.history.append(("User Query", bot_reply))
+    st.write(f"Botify: {chatbot_reply}")
+    st.session_state.history.append(("Chat", chatbot_reply))
