@@ -8,3 +8,4 @@ torchvision
 Pillow
 sentencepiece
 pytesseract
+langdetect
