@@ -18,8 +18,6 @@ HF_TOKEN = "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"  # Replace with your token
 def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
-    elif model_choice == "GPT-3":
-        model_name = "bigscience/bloom-560m"  # GPT-like model for conversation
     else:
         model_name = "google/flan-t5-large"  # Example Gemini model (use correct model name for Gemini)
     
@@ -28,7 +26,7 @@ def load_summarization_model(model_choice="BART"):
     return tokenizer, model
 
 # Initialize models and tokenizers
-model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "GPT-3"))
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini"))
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
@@ -49,7 +47,7 @@ def split_text(text, max_tokens=1024):
 
     return chunks
 
-# Summarize text function
+# Function to summarize text
 def summarize_text(text):
     max_tokens = 1024  # Token limit for the model
     chunks = split_text(text, max_tokens)
@@ -57,7 +55,9 @@ def summarize_text(text):
     summaries = []
     for chunk in chunks:
         inputs = summarization_tokenizer(chunk, return_tensors="pt", truncation=True, padding=True, max_length=1024)
-        summary_ids = summarization_model.generate(inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True)
+        summary_ids = summarization_model.generate(
+            inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True
+        )
         summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         summaries.append(summary)
 
@@ -131,7 +131,7 @@ st.markdown("""
 st.markdown('<h1 class="botify-title">Botify</h1>', unsafe_allow_html=True)
 
 # Option to choose between PDF upload, manual input, or translation
-option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image", "Start Conversation"))
+option = st.selectbox("Choose input method:", ("Upload PDF", "Enter Text Manually", "Upload Audio", "Upload Image"))
 
 context_text = ""
 
@@ -196,20 +196,6 @@ elif option == "Upload Image":
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
 
-# Handling Conversation
-elif option == "Start Conversation":
-    user_input = st.text_area("Ask a question or type a message:", height=200)
-    
-    if user_input.strip():
-        # Generate response based on user input
-        conversation_input = summarization_tokenizer(user_input, return_tensors="pt", truncation=True, padding=True, max_length=1024)
-        conversation_response_ids = summarization_model.generate(conversation_input["input_ids"], max_length=150, num_beams=4, early_stopping=True)
-        conversation_response = summarization_tokenizer.decode(conversation_response_ids[0], skip_special_tokens=True)
-        
-        st.write(f"Bot Response: {conversation_response}")
-        st.session_state.history.append(("User", user_input))
-        st.session_state.history.append(("Bot", conversation_response))
-
 # Sidebar for Interaction History with improved layout
 st.sidebar.subheader("Interaction History")
 if st.session_state.history:
@@ -239,6 +225,27 @@ if context_text:
             translated = translation_model.generate(**inputs)
             translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
-        st.success(f"Translated Text: {translated_text}")
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
         st.session_state.history.append(("Translation", translated_text))
 
+# Add a Conversation AI section
+st.subheader("Chat with Botify")
+
+# User input for chat
+user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
+
+# Process the query if entered
+if user_query:
+    with st.spinner("Generating response..."):
+        # Load model based on selection
+        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+
+        # Generate the response
+        inputs = conversational_tokenizer(user_query, return_tensors="pt")
+        response = conversational_model.generate(inputs["input_ids"], max_length=200)
+        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
+
+    st.write(f"Botify: {bot_reply}")
+    st.session_state.history.append(("User Query", bot_reply))
