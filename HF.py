@@ -232,3 +232,23 @@ if context_text:
         st.success(f"Translated text ({target_language}):")
         st.write(translated_text)
         st.session_state.history.append(("Translation", translated_text))
+
+# Add a Conversation AI section
+st.subheader("Chat with Botify")
+
+# User input for chat
+user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
+
+# Process the query if entered
+if user_query:
+    with st.spinner("Generating response..."):
+        # Example: Use a model to generate the response (replace with actual API call)
+        from transformers import pipeline
+        chat_model = pipeline("text-generation", model="gpt2")
+        bot_response = chat_model(user_query, max_length=100, num_return_sequences=1)[0]["generated_text"]
+
+    # Display the response
+    st.markdown(f"**Botify:** {bot_response}")
+    st.session_state.history.append(("User Query", bot_response))
+
+
