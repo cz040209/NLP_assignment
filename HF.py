@@ -21,23 +21,27 @@ def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
     elif model_choice == "Gemini":
-        model_name = "google/flan-t5-large"  # Example Gemini model (use correct model name for Gemini)
+        model_name = "google/flan-t5-large"  # Example Gemini model
     elif model_choice == "Llama2":
-        model_name = "llama-2-7b"  # Llama 2 model for summarization
+        model_name = "meta-llama/Llama-2-7b-hf"  # Llama 2 model for summarization
     else:
-        model_name = "gpt2"  # GPT-2 model for comparison
+        raise ValueError(f"Unsupported model choice: {model_choice}")
     
-    if model_choice == "gpt2" or model_choice == "Llama2":
-        tokenizer = LlamaTokenizer.from_pretrained(model_name) if model_choice == "Llama2" else GPT2Tokenizer.from_pretrained(model_name)
-        model = LlamaForCausalLM.from_pretrained(model_name) if model_choice == "Llama2" else GPT2LMHeadModel.from_pretrained(model_name)
+    # Ensure consistent use of the selected model for both summarization and conversation
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+    if model_choice == "Llama2":
+        model = LlamaForCausalLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
-    
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+
     return tokenizer, model
 
 # Initialize models and tokenizers
-model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "GPT-2", "Llama2"))
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "Llama2"))
+
+# Ensure the user has selected a model
+if model_choice is None:
+    st.error("Please select a model for summarization.")
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
@@ -171,6 +175,8 @@ if option == "Upload PDF":
                 st.session_state.history.append(("PDF Upload", summary))
         else:
             st.error("Failed to extract text. Please check your PDF file.")
+    else:
+        st.info("Please upload a PDF file.")
 
 elif option == "Enter Text Manually":
     manual_text = st.text_area("Enter your text below:", height=200)
@@ -199,6 +205,8 @@ elif option == "Upload Audio":
                 st.session_state.history.append(("Audio Upload", transcription))
             except Exception as e:
                 st.error(f"Error: {e}")
+    else:
+        st.info("Please upload an audio file.")
 
 elif option == "Upload Image":
     image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
@@ -209,8 +217,10 @@ elif option == "Upload Image":
             st.success("Text extracted from image!")
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
+    else:
+        st.info("Please upload an image file.")
 
-# Sidebar for Interaction History with improved layout
+# Sidebar for Interaction History
 st.sidebar.subheader("Interaction History")
 if st.session_state.history:
     for i, (user_input, response_output) in enumerate(st.session_state.history):
@@ -220,30 +230,7 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Translation Section with clean layout
-st.subheader("Translate Text")
-
-# Choose translation direction (English ↔ Chinese)
-target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
-
-if context_text:
-    st.subheader("Translate the Text")
-    if st.button("Translate Text", use_container_width=True):
-        with st.spinner("Translating text..."):
-            # Load translation model
-            translation_model, translation_tokenizer = load_summarization_model(model_choice=model_choice)  # Can select Gemini for translation
-            # Prepare the text for translation
-            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-            
-            # Generate translation
-            translated = translation_model.generate(**inputs)
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
-
-        st.success(f"Translated text ({target_language}):")
-        st.write(translated_text)
-        st.session_state.history.append(("Translation", translated_text))
-
-# Add a Conversation AI section
+# Chat section
 st.subheader("Chat with Botify")
 
 # User input for chat
@@ -252,13 +239,9 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Load Llama 2 model and tokenizer if selected, else fallback to others
-        if model_choice == "Llama2":
-            conversational_model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
-            conversational_tokenizer = LlamaTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
-        else:
-            conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
-            conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+        # Use the selected model for conversational response
+        conversational_tokenizer = summarization_tokenizer  # Use the same tokenizer as for summarization
+        conversational_model = summarization_model  # Use the same model for conversation as chosen by user
 
         # Tokenize user query and generate response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
