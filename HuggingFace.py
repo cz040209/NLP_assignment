@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration, MarianMTModel, MarianTokenizer
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -224,17 +224,25 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Translation Section with clean layout
+# Translation Section with actual logic
 st.subheader("Translate Text")
 
 # Choose translation direction (English ↔ Chinese)
 target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
 
+# Map the user selection to actual language codes
+lang_map = {
+    "English to Chinese": ("en", "zh"),
+    "Chinese to English": ("zh", "en")
+}
+
+src_lang, tgt_lang = lang_map.get(target_language, ("en", "zh"))  # Default to English to Chinese
+
 if context_text:
     st.subheader("Translated Text")
-    # Implement your translation logic here based on the target language
-    # For now, we can simply show the selected text without actual translation for testing purposes.
-    st.write(f"Translated Text: {context_text}")
+    # Perform the translation
+    translated_text = translate_text(context_text, src_lang, tgt_lang)
+    st.write(f"Translated Text: {translated_text}")
 
 # Add a Conversation AI section
 st.subheader("Chat with Botify")
@@ -255,3 +263,19 @@ if user_query:
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
+
+# Function to load and perform translation
+@st.cache_resource
+def load_translation_model(src_lang, tgt_lang):
+    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    model = MarianMTModel.from_pretrained(model_name)
+    return tokenizer, model
+
+# Function to perform translation
+def translate_text(text, src_lang, tgt_lang):
+    tokenizer, model = load_translation_model(src_lang, tgt_lang)
+    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+    translated = model.generate(**inputs)
+    translated_text = tokenizer.decode(translated[0], skip_special_tokens=True)
+    return translated_text
