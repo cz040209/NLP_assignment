@@ -28,6 +28,14 @@ def load_translation_model(model_name):
     tokenizer = MarianTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
+# Load BART Model for Translation
+@st.cache_resource
+def load_bart_translation_model():
+    model_name = "facebook/bart-large-cnn"  # Using the BART model for translation
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    return model, tokenizer
+
 # Initialize models and tokenizers
 summarization_tokenizer, summarization_model = load_summarization_model()
 
@@ -207,31 +215,50 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Translation Section with clean layout
+# Function to translate text using MarianMT
+def translate_with_marian(text, model, tokenizer):
+    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+    outputs = model.generate(**inputs)
+    translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return translated_text
+
+# Function to translate text using BART
+def translate_with_bart(text, model, tokenizer):
+    inputs = tokenizer(text, return_tensors="pt", max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs["input_ids"], max_length=150, min_length=10, num_beams=4, early_stopping=True)
+    translated_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return translated_text
+
+# Translation Section
 st.subheader("Translate Text")
 
-# Choose translation direction (English ↔ Chinese)
+# Option to choose translation direction
 target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
 
-if context_text:
-    st.subheader("Translate the Text")
-    if st.button("Translate Text", use_container_width=True):
-        with st.spinner("Translating text..."):
-            if target_language == "English to Chinese":
-                model_name = "Helsinki-NLP/opus-mt-en-zh"  # English to Chinese model
-            else:
-                model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
+# Context text
+context_text = "Enter some text to translate here."  # Replace with your desired text source or logic
 
-            translation_model, translation_tokenizer = load_translation_model(model_name)
-            
-            # Translate the text
-            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
-            translated = translation_model.generate(**inputs)
-            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
+# Load MarianMT and BART models based on selected direction
+if target_language == "English to Chinese":
+    marian_model_name = "Helsinki-NLP/opus-mt-en-zh"
+else:
+    marian_model_name = "Helsinki-NLP/opus-mt-zh-en"
 
-        st.success(f"Translated text ({target_language}):")
-        st.write(translated_text)
-        st.session_state.history.append(("Translation", translated_text))
+marian_model, marian_tokenizer = load_translation_model(marian_model_name)
+bart_translation_model, bart_translation_tokenizer = load_bart_translation_model()
+
+# Process translation
+if st.button("Translate Text", use_container_width=True):
+    with st.spinner("Translating with MarianMT..."):
+        marian_translation = translate_with_marian(context_text, marian_model, marian_tokenizer)
+
+    with st.spinner("Translating with BART..."):
+        bart_translation = translate_with_bart(context_text, bart_translation_model, bart_translation_tokenizer)
+
+    # Display both results
+    st.success("Translation Complete!")
+    st.write(f"**MarianMT Translation ({target_language}):** {marian_translation}")
+    st.write(f"**BART Translation ({target_language}):** {bart_translation}")
 
 # Add a Conversation AI section
 st.subheader("Chat with Botify")
