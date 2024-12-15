@@ -9,3 +9,8 @@ Pillow
 sentencepiece
 pytesseract
 langdetect
+datasets
+tokenizers
+accelerate
+scipy
+numpy
