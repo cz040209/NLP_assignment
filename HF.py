@@ -16,7 +16,7 @@ HF_TOKEN = "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"  # Replace with your token
 # Use Hugging Face pipeline for conversational AI (Chatbot)
 @st.cache_resource
 def load_llama2_conversational_pipeline():
-    model_name = "meta-llama/Llama-2-7b-hf"  # Replace with the appropriate Llama 2 model name
+    model_name = "meta-llama/Llama-2-7b-chat-hf"  # Replace with the appropriate Llama 2 model name
     conversation_pipeline = pipeline("text-generation", model=model_name, tokenizer=model_name, device=0 if torch.cuda.is_available() else -1)
     return conversation_pipeline
 
