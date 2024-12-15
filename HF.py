@@ -247,3 +247,4 @@ if user_query:
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
+
