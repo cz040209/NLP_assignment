@@ -222,7 +222,7 @@ if context_text:
                     model_name = "Helsinki-NLP/opus-mt-zh-en"  # Chinese to English model
                 else:
                     st.error("Unsupported language detected. Only English and Chinese are supported.")
-                    return
+                return
 
                 translation_model, translation_tokenizer = load_translation_model(model_name)
 
