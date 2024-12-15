@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import LlamaTokenizer, LlamaForCausalLM, AutoTokenizer, AutoModelForSeq2SeqLM, BlipProcessor, BlipForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -17,48 +17,29 @@ def load_blip_model():
 
 # Load Summarization Model and Tokenizer
 @st.cache_resource
-def load_summarization_model(model_choice="Llama2"):
+def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
     elif model_choice == "Gemini":
-        model_name = "google/flan-t5-large"  # Example Gemini model
+        model_name = "google/flan-t5-large"  # Example Gemini model (use correct model name for Gemini)
+    elif model_choice == "Llama2":
+        model_name = "meta-llama/Llama-2-7b-hf"  # Llama 2 model for summarization
     else:
-        model_name = "meta-llama/Llama-2-70b-chat-hf"  # Llama 2 model as a fallback
-
-    if model_choice == "Llama2":
-        tokenizer = LlamaTokenizer.from_pretrained(model_name)
-        model = LlamaForCausalLM.from_pretrained(model_name)
+        model_name = "gpt2"  # GPT-2 model for comparison
+    
+    if model_choice == "gpt2" or model_choice == "Llama2":
+        tokenizer = LlamaTokenizer.from_pretrained(model_name) if model_choice == "Llama2" else GPT2Tokenizer.from_pretrained(model_name)
+        model = LlamaForCausalLM.from_pretrained(model_name) if model_choice == "Llama2" else GPT2LMHeadModel.from_pretrained(model_name)
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
         model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
     
     return tokenizer, model
 
-# Load Conversation Model and Tokenizer
-@st.cache_resource
-def load_conversation_model(model_choice="Llama2"):
-    if model_choice == "BART":
-        model_name = "facebook/bart-large"  # BART model for conversation
-    elif model_choice == "Gemini":
-        model_name = "google/flan-t5-large"  # Example Gemini model for conversation
-    else:
-        model_name = "meta-llama/Llama-2-70b-chat-hf"  # Llama 2 model for conversation
+# Initialize models and tokenizers
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "GPT-2", "Llama2"))
 
-    if model_choice == "Llama2":
-        tokenizer = LlamaTokenizer.from_pretrained(model_name)
-        model = LlamaForCausalLM.from_pretrained(model_name)
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
-    
-    return tokenizer, model
-
-# Initialize models and tokenizers based on user selection
-summarization_model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "Llama2"))
-conversation_model_choice = st.selectbox("Select Model for Conversation:", ("BART", "Gemini", "Llama2"))
-
-summarization_tokenizer, summarization_model = load_summarization_model(summarization_model_choice)
-conversation_tokenizer, conversation_model = load_conversation_model(conversation_model_choice)
+summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -250,13 +231,13 @@ if context_text:
     if st.button("Translate Text", use_container_width=True):
         with st.spinner("Translating text..."):
             # Load translation model
-            translation_model, translation_tokenizer = load_summarization_model(model_choice=summarization_model_choice)  # Can select Gemini for translation
+            translation_model, translation_tokenizer = load_summarization_model(model_choice=model_choice)  # Can select Gemini for translation
             # Prepare the text for translation
-            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True, truncation=True, max_length=1024)
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
             
             # Generate translation
-            translation = translation_model.generate(inputs["input_ids"], max_length=512)
-            translated_text = translation_tokenizer.decode(translation[0], skip_special_tokens=True)
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
         st.success(f"Translated text ({target_language}):")
         st.write(translated_text)
@@ -271,10 +252,18 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Use the conversation model chosen by the user
-        inputs = conversation_tokenizer(user_query, return_tensors="pt")
-        response = conversation_model.generate(inputs["input_ids"], max_length=200)
-        bot_reply = conversation_tokenizer.decode(response[0], skip_special_tokens=True)
+        # Load Llama 2 model and tokenizer if selected, else fallback to others
+        if model_choice == "Llama2":
+            conversational_model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
+            conversational_tokenizer = LlamaTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+        else:
+            conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+            conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+
+        # Tokenize user query and generate response
+        inputs = conversational_tokenizer(user_query, return_tensors="pt")
+        response = conversational_model.generate(inputs["input_ids"], max_length=200)
+        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
