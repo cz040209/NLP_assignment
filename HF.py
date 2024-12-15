@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GPT2LMHeadModel, GPT2Tokenizer
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -18,15 +18,22 @@ HF_TOKEN = "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"  # Replace with your token
 def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
-    else:
+    elif model_choice == "Gemini":
         model_name = "google/flan-t5-large"  # Example Gemini model (use correct model name for Gemini)
+    else:
+        model_name = "gpt2"  # GPT-2 model for comparison
     
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
+    if model_choice == "gpt2":
+        tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+        model = GPT2LMHeadModel.from_pretrained(model_name)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
+    
     return tokenizer, model
 
 # Initialize models and tokenizers
-model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini"))
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "Gemini", "GPT-2"))
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
@@ -217,7 +224,7 @@ if context_text:
     if st.button("Translate Text", use_container_width=True):
         with st.spinner("Translating text..."):
             # Load translation model
-            translation_model, translation_tokenizer = load_summarization_model(model_choice="BART")  # Can select Gemini for translation
+            translation_model, translation_tokenizer = load_summarization_model(model_choice=model_choice)  # Can select Gemini for translation
             # Prepare the text for translation
             inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
             
@@ -239,8 +246,8 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 if user_query:
     with st.spinner("Generating response..."):
         # Load model based on selection
-        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
-        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large")
+        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2")
+        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2")
 
         # Generate the response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
