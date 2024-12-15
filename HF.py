@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -21,18 +21,10 @@ def load_summarization_model():
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # Updated argument
     return tokenizer, model
 
-# Load MarianMT Model and Tokenizer for Translation (Chinese-English)
+# Load BART Model and Tokenizer for Translation (English-Chinese)
 @st.cache_resource
 def load_translation_model(model_name):
-    model = MarianMTModel.from_pretrained(model_name)
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    return model, tokenizer
-
-# Load BART Model for Translation
-@st.cache_resource
-def load_bart_translation_model():
-    model_name = "facebook/bart-large-cnn"  # Using the BART model for translation
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)  # Using BART for translation
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
@@ -215,65 +207,42 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
-# Function to translate text using MarianMT
-def translate_with_marian(text, model, tokenizer):
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
-    outputs = model.generate(**inputs)
-    translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return translated_text
-
-# Function to translate text using BART
-def translate_with_bart(text, model, tokenizer):
-    inputs = tokenizer(text, return_tensors="pt", max_length=1024, truncation=True)
-    summary_ids = model.generate(inputs["input_ids"], max_length=150, min_length=10, num_beams=4, early_stopping=True)
-    translated_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-    return translated_text
-
-# Translation Section
+# Translation Section with clean layout
 st.subheader("Translate Text")
 
-# Option to choose translation direction
+# Choose translation direction (English ↔ Chinese)
 target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
 
-# Context text
-context_text = "Enter some text to translate here."  # Replace with your desired text source or logic
+if context_text:
+    st.subheader("Translate the Text")
+    if st.button("Translate Text", use_container_width=True):
+        with st.spinner("Translating text..."):
+            if target_language == "English to Chinese":
+                model_name = "facebook/bart-large-cnn"  # Example: BART fine-tuned for translation (modify as needed)
+            else:
+                model_name = "facebook/bart-large-cnn"  # Example for Chinese to English; adapt with actual model names
 
-# Load MarianMT and BART models based on selected direction
-if target_language == "English to Chinese":
-    marian_model_name = "Helsinki-NLP/opus-mt-en-zh"
-else:
-    marian_model_name = "Helsinki-NLP/opus-mt-zh-en"
+            # Load the BART model and tokenizer
+            translation_model, translation_tokenizer = load_translation_model(model_name)
 
-marian_model, marian_tokenizer = load_translation_model(marian_model_name)
-bart_translation_model, bart_translation_tokenizer = load_bart_translation_model()
+            # Tokenize and translate the text
+            inputs = translation_tokenizer(context_text, return_tensors="pt", padding=True)
+            translated = translation_model.generate(**inputs)
+            translated_text = translation_tokenizer.decode(translated[0], skip_special_tokens=True)
 
-# Process translation
-if st.button("Translate Text", use_container_width=True):
-    with st.spinner("Translating with MarianMT..."):
-        marian_translation = translate_with_marian(context_text, marian_model, marian_tokenizer)
-
-    with st.spinner("Translating with BART..."):
-        bart_translation = translate_with_bart(context_text, bart_translation_model, bart_translation_tokenizer)
-
-    # Display both results
-    st.success("Translation Complete!")
-    st.write(f"**MarianMT Translation ({target_language}):** {marian_translation}")
-    st.write(f"**BART Translation ({target_language}):** {bart_translation}")
+        st.success(f"Translated text ({target_language}):")
+        st.write(translated_text)
+        st.session_state.history.append(("Translation", translated_text))
 
 # Add a Conversation AI section
 st.subheader("Chat with Botify")
 
-# User input for chat
-user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
+# User input for conversation AI
+user_input = st.text_input("Talk to Botify:")
 
-# Process the query if entered
-if user_query:
-    with st.spinner("Generating response..."):
-        # Example: Use a model to generate the response (replace with actual API call)
-        from transformers import pipeline
-        chat_model = pipeline("text-generation", model="gpt2")
-        bot_response = chat_model(user_query, max_length=100, num_return_sequences=1)[0]["generated_text"]
-
-    # Display the response
-    st.markdown(f"**Botify:** {bot_response}")
-    st.session_state.history.append(("User Query", bot_response))
+if user_input:
+    st.write(f"You said: {user_input}")
+    st.session_state.history.append(("User Input", user_input))
+    response = "This is Botify's response."  # A placeholder for the bot's response logic
+    st.write(f"Botify says: {response}")
+    st.session_state.history.append(("Botify Response", response))
