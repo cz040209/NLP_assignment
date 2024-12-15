@@ -23,7 +23,7 @@ def load_summarization_model(model_choice="BART"):
     elif model_choice == "Gemini":
         model_name = "google/flan-t5-large"  # Example Gemini model (use correct model name for Gemini)
     elif model_choice == "Llama2":
-        model_name = "meta-llama/Llama-2-7b-hf"  # Llama 2 model for summarization
+        model_name = "llama-2-7b"  # Llama 2 model for summarization
     else:
         model_name = "gpt2"  # GPT-2 model for comparison
     
