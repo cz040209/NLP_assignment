@@ -1,4 +1,3 @@
-openai
 streamlit
 pdfplumber
 transformers
