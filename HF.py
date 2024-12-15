@@ -251,8 +251,15 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 if user_query:
     with st.spinner("Generating response..."):
         # Load model based on selection
-        conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2")
-        conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large" if model_choice == "BART" else "google/flan-t5-large" if model_choice == "Gemini" else "gpt2")
+        if model_choice == "GPT-2":
+            conversational_model = GPT2LMHeadModel.from_pretrained("gpt2")
+            conversational_tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        elif model_choice == "BART":
+            conversational_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large")
+            conversational_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large")
+        elif model_choice == "Gemini":
+            conversational_model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large")
+            conversational_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
 
         # Generate the response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
