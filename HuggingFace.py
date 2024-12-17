@@ -36,7 +36,7 @@ def load_summarization_model(model_choice="BART"):
 
     return tokenizer, model
 
-# Initialize models and tokenizers
+# Initialize models and tokenizers based on user selection
 model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama3"))
 
 # Ensure a model is chosen before proceeding
@@ -224,6 +224,26 @@ if st.session_state.history:
 else:
     st.sidebar.write("No history yet.")
 
+# Add a Conversation AI section
+st.subheader("Chat with Botify")
+
+# User input for chat
+user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
+
+# Process the query if entered
+if user_query:
+    with st.spinner("Generating response..."):
+        # Use the selected model (BART, T5, or Llama3) for chat
+        conversational_tokenizer, conversational_model = load_summarization_model(model_choice)  # Dynamically load the selected model
+
+        # Tokenize user query and generate response
+        inputs = conversational_tokenizer(user_query, return_tensors="pt")
+        response = conversational_model.generate(inputs["input_ids"], max_length=200)
+        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
+
+    st.write(f"Botify: {bot_reply}")
+    st.session_state.history.append(("User Query", bot_reply))
+
 # Translation Section with clean layout
 st.subheader("Translate Text")
 
@@ -237,32 +257,6 @@ lang_map = {
 }
 
 src_lang, tgt_lang = lang_map.get(target_language, ("en", "zh"))  # Default to English to Chinese
-
-if context_text:
-    st.subheader("Translated Text")
-    # Perform the translation
-    translated_text = translate_text(context_text, src_lang, tgt_lang)
-    st.write(f"Translated Text: {translated_text}")
-
-# Add a Conversation AI section
-st.subheader("Chat with Botify")
-
-# User input for chat
-user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
-
-# Process the query if entered
-if user_query:
-    with st.spinner("Generating response..."):
-        # Load a conversational model (DialoGPT for chatting)
-        conversational_tokenizer, conversational_model = load_summarization_model(model_choice="T5")  # Use T5 or another conversational model like DialoGPT
-
-        # Tokenize user query and generate response
-        inputs = conversational_tokenizer(user_query, return_tensors="pt")
-        response = conversational_model.generate(inputs["input_ids"], max_length=200)
-        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
-
-    st.write(f"Botify: {bot_reply}")
-    st.session_state.history.append(("User Query", bot_reply))
 
 # Function to load and perform translation
 @st.cache_resource
@@ -279,3 +273,9 @@ def translate_text(text, src_lang, tgt_lang):
     translated = model.generate(**inputs)
     translated_text = tokenizer.decode(translated[0], skip_special_tokens=True)
     return translated_text
+
+if context_text:
+    st.subheader("Translated Text")
+    # Perform the translation
+    translated_text = translate_text(context_text, src_lang, tgt_lang)
+    st.write(f"Translated Text: {translated_text}")
