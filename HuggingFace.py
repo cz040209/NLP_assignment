@@ -28,11 +28,11 @@ def load_summarization_model(model_choice="BART"):
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
     # Ensure consistent use of the selected model for both summarization and conversation
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
     if model_choice == "Llama3":
-        model = LlamaForCausalLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+        model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
     else:
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
 
     return tokenizer, model
 
