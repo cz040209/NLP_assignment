@@ -9,4 +9,4 @@ tokenizers
 sacremoses
 requests
 numpy
-
+sentencepiece
