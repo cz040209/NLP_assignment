@@ -22,14 +22,14 @@ def load_summarization_model(model_choice="BART"):
         model_name = "facebook/bart-large-cnn"  # BART model for summarization
     elif model_choice == "T5":
         model_name = "t5-large"  # T5 model for summarization
-    elif model_choice == "Llama2":
-        model_name = "meta-llama/Llama-2-7b-hf"  # Llama 2 model for summarization
+    elif model_choice == "Llama3":
+        model_name = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 2 model for summarization
     else:
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
     # Ensure consistent use of the selected model for both summarization and conversation
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    if model_choice == "Llama2":
+    if model_choice == "Llama3":
         model = LlamaForCausalLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     else:
         model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
@@ -40,7 +40,7 @@ def load_summarization_model(model_choice="BART"):
 model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama2"))
 
 # Ensure a model is chosen before proceeding
-if model_choice not in ["BART", "T5", "Llama2"]:
+if model_choice not in ["BART", "T5", "Llama3"]:
     st.warning("Please select a valid model for summarization and conversation.")
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
