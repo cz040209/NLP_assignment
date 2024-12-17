@@ -23,7 +23,7 @@ def load_summarization_model(model_choice="BART"):
     elif model_choice == "T5":
         model_name = "t5-large"  # T5 model for summarization
     elif model_choice == "Llama3":
-        model_name = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 2 model for summarization
+        model_name = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 3 model for summarization
     else:
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
@@ -253,8 +253,8 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Load the conversational model based on user selection
-        conversational_tokenizer, conversational_model = load_summarization_model(model_choice=model_choice)
+        # Load a conversational model (DialoGPT for chatting)
+        conversational_tokenizer, conversational_model = load_summarization_model(model_choice="T5")  # Use T5 or another conversational model like DialoGPT
 
         # Tokenize user query and generate response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
