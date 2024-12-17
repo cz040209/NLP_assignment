@@ -1,7 +1,5 @@
 streamlit
 pdfplumber
-transformers
-torch
 speechrecognition
 pydub
 pillow
