@@ -9,3 +9,5 @@ tokenizers
 sacremoses
 requests
 numpy
+blip
+marianmt
