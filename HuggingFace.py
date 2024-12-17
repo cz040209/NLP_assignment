@@ -37,7 +37,7 @@ def load_summarization_model(model_choice="BART"):
     return tokenizer, model
 
 # Initialize models and tokenizers
-model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama2"))
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama3"))
 
 # Ensure a model is chosen before proceeding
 if model_choice not in ["BART", "T5", "Llama3"]:
