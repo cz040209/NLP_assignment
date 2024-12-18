@@ -1,19 +1,32 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
+import requests
+import json
 from PIL import Image
 import speech_recognition as sr  # For audio-to-text functionality
 from gtts import gTTS
+from transformers import BlipProcessor, BlipForConditionalGeneration
 
-# Your Hugging Face token
-HF_TOKEN = "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"  # Replace with your token
+# Set up the vLLM model for querying Llama3 locally (via HTTP)
+VLLM_URL = "http://localhost:8000/v1/chat/completions"  # URL of the vLLM server
 
-# Set up the BLIP model for image-to-text
-def load_blip_model():
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    return processor, model
+# Function to query the Llama3 model running with vLLM
+def query_llama3_vllm(user_query):
+    payload = {
+        "model": "meta-llama/Llama-3.3-70B-Instruct",
+        "messages": [
+            {"role": "user", "content": user_query}
+        ]
+    }
+
+    try:
+        response = requests.post(VLLM_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
+        response.raise_for_status()
+        response_data = response.json()
+        return response_data.get("choices", [{}])[0].get("message", {}).get("content", "No reply")
+    except requests.exceptions.RequestException as e:
+        return f"Error while querying vLLM: {str(e)}"
 
 # Function for Text-to-Speech (Text to Audio)
 def text_to_speech(text):
@@ -23,18 +36,11 @@ def text_to_speech(text):
     st.audio("response.mp3", format="audio/mp3")
     os.remove("response.mp3")  # Clean up the temporary audio file
 
-# Use Hugging Face pipeline for Llama3 (method 1)
-@st.cache_resource
-def load_llama3_pipeline():
-    # Define Llama3 pipeline for text generation (chatbot or summarization)
-    # Hugging Face's `pipeline` will automatically handle tokenization and model loading
-    llama3_pipeline = pipeline("text-generation", model="meta-llama/Llama-3.3-70B-Instruct", 
-                               tokenizer="meta-llama/Llama-3.3-70B-Instruct", 
-                               use_auth_token=HF_TOKEN)
-    return llama3_pipeline
-
-# Initialize pipeline
-llama3_pipeline = load_llama3_pipeline()
+# Use Hugging Face's BLIP for image captioning
+def load_blip_model():
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+    return processor, model
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -53,15 +59,14 @@ def split_text(text, max_tokens=1024):
 
     return chunks
 
-# Function to summarize text using Llama3 via pipeline
+# Function to summarize text using the Llama3 model (via vLLM)
 def summarize_text(text):
     max_tokens = 1024  # Token limit for the model
     chunks = split_text(text, max_tokens)
 
     summaries = []
     for chunk in chunks:
-        # Using the Llama3 pipeline for text summarization
-        summary = llama3_pipeline(chunk, max_length=150, num_return_sequences=1)[0]["generated_text"]
+        summary = query_llama3_vllm(chunk)
         summaries.append(summary)
 
     final_summary = " ".join(summaries)
@@ -221,8 +226,8 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Use the Llama3 pipeline for conversation
-        bot_reply = llama3_pipeline(user_query, max_length=200, num_return_sequences=1)[0]["generated_text"]
+        # Use the vLLM server for conversation (query the Llama3 model)
+        bot_reply = query_llama3_vllm(user_query)
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
