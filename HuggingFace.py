@@ -1,14 +1,18 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration, MarianMTModel, MarianTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
 from gtts import gTTS
+from azure.ai.inference import ChatCompletionsClient
+from azure.core.credentials import AzureKeyCredential
+from azure.ai.inference.models import SystemMessage, UserMessage
 
-# Your Hugging Face token
-HF_TOKEN = "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"  # Replace with your token
+# Your Azure API key (make sure it's stored in environment variable or directly here)
+AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
+AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
 def load_blip_model():
@@ -24,6 +28,30 @@ def text_to_speech(text):
     st.audio("response.mp3", format="audio/mp3")
     os.remove("response.mp3")  # Clean up the temporary audio file
 
+# Function to load the Azure Llama model for summarization or chat
+@st.cache_resource
+def load_llama_model():
+    client = ChatCompletionsClient(
+        endpoint=AZURE_ENDPOINT,
+        credential=AzureKeyCredential(AZURE_API_KEY),
+    )
+    return client
+
+# Function to summarize text using Llama (Azure)
+def summarize_with_llama(text):
+    client = load_llama_model()
+    response = client.complete(
+        messages=[
+            SystemMessage(content="You are a helpful assistant."),
+            UserMessage(content=text),
+        ],
+        model="Meta-Llama-3.1-70B-Instruct",
+        temperature=0.7,
+        max_tokens=150,
+        top_p=0.95,
+    )
+    return response.choices[0].message.content
+
 # Load Summarization Model and Tokenizer
 @st.cache_resource
 def load_summarization_model(model_choice="BART"):
@@ -37,11 +65,8 @@ def load_summarization_model(model_choice="BART"):
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
     # Ensure consistent use of the selected model for both summarization and conversation
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
-    if model_choice == "Llama3":
-        model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
-    else:
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
     return tokenizer, model
 
@@ -242,13 +267,8 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Use the selected model (BART, T5, or Llama3) for chat
-        conversational_tokenizer, conversational_model = load_summarization_model(model_choice)  # Dynamically load the selected model
-
-        # Tokenize user query and generate response
-        inputs = conversational_tokenizer(user_query, return_tensors="pt")
-        response = conversational_model.generate(inputs["input_ids"], max_length=200)
-        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
+        # Use Azure Llama model to generate a response
+        bot_reply = summarize_with_llama(user_query)
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
