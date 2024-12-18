@@ -10,7 +10,11 @@ sacremoses
 requests
 numpy
 sentencepiece
-gTTS
-
+gtts
+flask
+numpy
+scipy
+matplotlib
+scikit-learn
 
 
