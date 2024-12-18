@@ -11,4 +11,4 @@ requests
 numpy
 sentencepiece
 gTTS
-
+vLLM
