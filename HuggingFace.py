@@ -32,16 +32,17 @@ def load_summarization_model(model_choice="BART"):
     elif model_choice == "T5":
         model_name = "t5-large"  # T5 model for summarization
     elif model_choice == "Llama3":
-        model_name = "meta-llama/Llama-2-7B"  # Llama 3 model for summarization
+        model_name = "meta-llama/Llama-2-7B"  # Llama 2 model for summarization
     else:
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
     # Ensure consistent use of the selected model for both summarization and conversation
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
     if model_choice == "Llama3":
-        model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
+        # Use `from_tf=True` to load the model from TensorFlow weights if available
+        model = LlamaForCausalLM.from_pretrained(model_name, use_auth_token=HF_TOKEN, from_tf=True)
     else:
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
 
     return tokenizer, model
 
