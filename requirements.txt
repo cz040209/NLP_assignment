@@ -10,3 +10,4 @@ sacremoses
 requests
 numpy
 sentencepiece
+gTTS
