@@ -12,3 +12,4 @@ numpy
 sentencepiece
 gtts
 huggingface_hub
+shutil
