@@ -11,7 +11,7 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference.models import SystemMessage, UserMessage
 
 # Your Azure API key (make sure it's stored in environment variable or directly here)
-AZURE_API_KEY = os.getenv("AZURE_API_KEY")  # Replace with your Azure key if necessary
+AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
 AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
