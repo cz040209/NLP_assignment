@@ -1,56 +1,44 @@
 import os
 import streamlit as st
+from transformers import AutoTokenizer, LlamaForCausalLM, AutoModelForSeq2SeqLM
+from PIL import Image
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration, MarianMTModel, MarianTokenizer
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
-from PIL import Image
 from gtts import gTTS
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
 
-# Set up the BLIP model for image-to-text
-def load_blip_model():
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    return processor, model
+# Local path where you've downloaded and unzipped the model
+LLAMA3_PATH = r"C:\Users\chenz\Downloads\llama3-main.zip\llama3-main"
 
-# Function for Text-to-Speech (Text to Audio)
-def text_to_speech(text):
-    tts = gTTS(text=text, lang='en')  # You can change language if needed
-    tts.save("response.mp3")  # Save the speech as an audio file
-    # Provide a link to download or play the audio
-    st.audio("response.mp3", format="audio/mp3")
-    os.remove("response.mp3")  # Clean up the temporary audio file
+# Function to load Llama3 model from local directory
+@st.cache_resource
+def load_llama3_model():
+    model_name = LLAMA3_PATH  # Path to the local model
+
+    # Load tokenizer and model from the local path
+    tokenizer = AutoTokenizer.from_pretrained(model_name)  # Using AutoTokenizer for simplicity
+    model = LlamaForCausalLM.from_pretrained(model_name)  # Load Llama model locally
+
+    return tokenizer, model
 
 # Load Summarization Model and Tokenizer
 @st.cache_resource
-def load_summarization_model(model_choice="BART"):
-    if model_choice == "BART":
-        model_name = "facebook/bart-large-cnn"  # BART model for summarization
-    elif model_choice == "T5":
-        model_name = "t5-large"  # T5 model for summarization
-    elif model_choice == "Llama3":
-        model_name = "meta-llama/Llama-2-7B"  # Llama 2 model for summarization
+def load_summarization_model(model_choice="Llama3"):
+    if model_choice == "Llama3":
+        tokenizer, model = load_llama3_model()  # Load the local Llama3 model
     else:
         raise ValueError(f"Unsupported model choice: {model_choice}")
-    
-    # Ensure consistent use of the selected model for both summarization and conversation
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-    if model_choice == "Llama3":
-        # Use `from_tf=True` to load the model from TensorFlow weights if available
-        model = LlamaForCausalLM.from_pretrained(model_name, use_auth_token=HF_TOKEN, from_tf=True)
-    else:
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HF_TOKEN)
 
     return tokenizer, model
 
 # Initialize models and tokenizers based on user selection
-model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama3"))
+model_choice = st.selectbox("Select Model for Summarization:", ("Llama3",))
 
 # Ensure a model is chosen before proceeding
-if model_choice not in ["BART", "T5", "Llama3"]:
+if model_choice not in ["Llama3"]:
     st.warning("Please select a valid model for summarization and conversation.")
 
 summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
@@ -104,6 +92,7 @@ def audio_to_text(audio_file):
 
 # Function for Image to Text (BLIP)
 def image_to_text(image_file):
+    # Assuming BLIP model is used for image-to-text
     processor, model = load_blip_model()
     image = Image.open(image_file).convert("RGB")
     inputs = processor(images=image, return_tensors="pt")
@@ -233,63 +222,3 @@ if st.session_state.history:
         st.sidebar.write(f"**Response Output:** {response_output}")
 else:
     st.sidebar.write("No history yet.")
-
-# Add a Conversation AI section
-st.subheader("Chat with Botify")
-
-# User input for chat
-user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
-
-# Process the query if entered
-if user_query:
-    with st.spinner("Generating response..."):
-        # Use the selected model (BART, T5, or Llama3) for chat
-        conversational_tokenizer, conversational_model = load_summarization_model(model_choice)  # Dynamically load the selected model
-
-        # Tokenize user query and generate response
-        inputs = conversational_tokenizer(user_query, return_tensors="pt")
-        response = conversational_model.generate(inputs["input_ids"], max_length=200)
-        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
-
-    st.write(f"Botify: {bot_reply}")
-    st.session_state.history.append(("User Query", bot_reply))
-    
-    # Convert the bot's reply to speech
-    text_to_speech(bot_reply)  # Make the bot speak the response
-
-
-# Translation Section with clean layout
-st.subheader("Translate Text")
-
-# Choose translation direction (English ↔ Chinese)
-target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
-
-# Map the user selection to actual language codes
-lang_map = {
-    "English to Chinese": ("en", "zh"),
-    "Chinese to English": ("zh", "en")
-}
-
-src_lang, tgt_lang = lang_map.get(target_language, ("en", "zh"))  # Default to English to Chinese
-
-# Function to load and perform translation
-@st.cache_resource
-def load_translation_model(src_lang, tgt_lang):
-    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    model = MarianMTModel.from_pretrained(model_name)
-    return tokenizer, model
-
-# Function to perform translation
-def translate_text(text, src_lang, tgt_lang):
-    tokenizer, model = load_translation_model(src_lang, tgt_lang)
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
-    translated = model.generate(**inputs)
-    translated_text = tokenizer.decode(translated[0], skip_special_tokens=True)
-    return translated_text
-
-if context_text:
-    st.subheader("Translated Text")
-    # Perform the translation
-    translated_text = translate_text(context_text, src_lang, tgt_lang)
-    st.write(f"Translated Text: {translated_text}")
