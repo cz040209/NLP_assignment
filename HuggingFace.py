@@ -1,32 +1,20 @@
 import os
 import streamlit as st
 import pdfplumber
-import requests
-import json
-from PIL import Image
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration, MarianMTModel, MarianTokenizer
+import torch
 import speech_recognition as sr  # For audio-to-text functionality
+from PIL import Image
 from gtts import gTTS
-from transformers import BlipProcessor, BlipForConditionalGeneration
 
-# Set up the vLLM model for querying Llama3 locally (via HTTP)
-VLLM_URL = "http://localhost:8000/v1/chat/completions"  # URL of the vLLM server
+# Your Hugging Face token
+HF_TOKEN = "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"  # Replace with your token
 
-# Function to query the Llama3 model running with vLLM
-def query_llama3_vllm(user_query):
-    payload = {
-        "model": "meta-llama/Llama-3.3-70B-Instruct",
-        "messages": [
-            {"role": "user", "content": user_query}
-        ]
-    }
-
-    try:
-        response = requests.post(VLLM_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
-        response.raise_for_status()
-        response_data = response.json()
-        return response_data.get("choices", [{}])[0].get("message", {}).get("content", "No reply")
-    except requests.exceptions.RequestException as e:
-        return f"Error while querying vLLM: {str(e)}"
+# Set up the BLIP model for image-to-text
+def load_blip_model():
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+    return processor, model
 
 # Function for Text-to-Speech (Text to Audio)
 def text_to_speech(text):
@@ -36,11 +24,35 @@ def text_to_speech(text):
     st.audio("response.mp3", format="audio/mp3")
     os.remove("response.mp3")  # Clean up the temporary audio file
 
-# Use Hugging Face's BLIP for image captioning
-def load_blip_model():
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    return processor, model
+# Load Summarization Model and Tokenizer
+@st.cache_resource
+def load_summarization_model(model_choice="BART"):
+    if model_choice == "BART":
+        model_name = "facebook/bart-large-cnn"  # BART model for summarization
+    elif model_choice == "T5":
+        model_name = "t5-large"  # T5 model for summarization
+    elif model_choice == "Llama3":
+        model_name = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 3 model for summarization
+    else:
+        raise ValueError(f"Unsupported model choice: {model_choice}")
+    
+    # Ensure consistent use of the selected model for both summarization and conversation
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
+    if model_choice == "Llama3":
+        model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
+    else:
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
+
+    return tokenizer, model
+
+# Initialize models and tokenizers based on user selection
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama3"))
+
+# Ensure a model is chosen before proceeding
+if model_choice not in ["BART", "T5", "Llama3"]:
+    st.warning("Please select a valid model for summarization and conversation.")
+
+summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
@@ -59,14 +71,18 @@ def split_text(text, max_tokens=1024):
 
     return chunks
 
-# Function to summarize text using the Llama3 model (via vLLM)
+# Function to summarize text
 def summarize_text(text):
     max_tokens = 1024  # Token limit for the model
     chunks = split_text(text, max_tokens)
 
     summaries = []
     for chunk in chunks:
-        summary = query_llama3_vllm(chunk)
+        inputs = summarization_tokenizer(chunk, return_tensors="pt", truncation=True, padding=True, max_length=1024)
+        summary_ids = summarization_model.generate(
+            inputs["input_ids"], max_length=150, min_length=40, num_beams=4, early_stopping=True
+        )
+        summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         summaries.append(summary)
 
     final_summary = " ".join(summaries)
@@ -226,14 +242,20 @@ user_query = st.text_input("Enter your query:", key="chat_input", placeholder="T
 # Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Use the vLLM server for conversation (query the Llama3 model)
-        bot_reply = query_llama3_vllm(user_query)
+        # Use the selected model (BART, T5, or Llama3) for chat
+        conversational_tokenizer, conversational_model = load_summarization_model(model_choice)  # Dynamically load the selected model
+
+        # Tokenize user query and generate response
+        inputs = conversational_tokenizer(user_query, return_tensors="pt")
+        response = conversational_model.generate(inputs["input_ids"], max_length=200)
+        bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
     
     # Convert the bot's reply to speech
     text_to_speech(bot_reply)  # Make the bot speak the response
+
 
 # Translation Section with clean layout
 st.subheader("Translate Text")
