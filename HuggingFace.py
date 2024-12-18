@@ -243,6 +243,10 @@ if user_query:
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
+    
+    # Convert the bot's reply to speech
+    text_to_speech(bot_reply)  # Make the bot speak the response
+
 
 # Translation Section with clean layout
 st.subheader("Translate Text")
