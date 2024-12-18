@@ -32,7 +32,7 @@ def load_summarization_model(model_choice="BART"):
     elif model_choice == "T5":
         model_name = "t5-large"  # T5 model for summarization
     elif model_choice == "Llama3":
-        model_name = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 3 model for summarization
+        model_name = "meta-llama/Llama-2-7B"  # Llama 3 model for summarization
     else:
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
