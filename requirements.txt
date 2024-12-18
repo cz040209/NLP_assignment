@@ -11,10 +11,4 @@ requests
 numpy
 sentencepiece
 gtts
-flask
-numpy
-scipy
-matplotlib
-scikit-learn
-datasets
 huggingface_hub
