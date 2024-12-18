@@ -7,6 +7,9 @@ import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
 from gtts import gTTS
 
+# Clear cache of transformers
+os.system('rm -rf ~/.cache/huggingface')
+
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
 
