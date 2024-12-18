@@ -5,6 +5,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, L
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
+from gtts import gTTS
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
@@ -14,6 +15,14 @@ def load_blip_model():
     processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
     return processor, model
+
+# Function for Text-to-Speech (Text to Audio)
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='en')  # You can change language if needed
+    tts.save("response.mp3")  # Save the speech as an audio file
+    # Provide a link to download or play the audio
+    st.audio("response.mp3", format="audio/mp3")
+    os.remove("response.mp3")  # Clean up the temporary audio file
 
 # Load Summarization Model and Tokenizer
 @st.cache_resource
