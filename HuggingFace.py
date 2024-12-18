@@ -1,42 +1,20 @@
 import os
-import requests
-import torch
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, MarianMTModel, MarianTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration, MarianMTModel, MarianTokenizer
+import torch
+import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
 from gtts import gTTS
-import zipfile
-from io import BytesIO
-import speech_recognition as sr  # For audio-to-text functionality
 
-# Function to download and load the Llama3 model from the official URL
-def load_llama3_model_from_url(url):
-    # Download the model files
-    response = requests.get(url)
-    if response.status_code == 200:
-        # Save the zip file to a temporary directory
-        temp_dir = "llama3_model"
-        os.makedirs(temp_dir, exist_ok=True)
-        zip_path = os.path.join(temp_dir, "llama3-model.zip")
-        
-        with open(zip_path, 'wb') as f:
-            f.write(response.content)
-        
-        # Extract the zip file
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+# Your Hugging Face token
+HF_TOKEN = "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"  # Replace with your token
 
-        # Load the tokenizer and model
-        tokenizer = LlamaTokenizer.from_pretrained(temp_dir)
-        model = LlamaForCausalLM.from_pretrained(temp_dir)
-        
-        # Clean up the zip file
-        os.remove(zip_path)
-        
-        return tokenizer, model
-    else:
-        raise Exception(f"Failed to download model from {url}, status code: {response.status_code}")
+# Set up the BLIP model for image-to-text
+def load_blip_model():
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+    return processor, model
 
 # Function for Text-to-Speech (Text to Audio)
 def text_to_speech(text):
@@ -54,24 +32,27 @@ def load_summarization_model(model_choice="BART"):
     elif model_choice == "T5":
         model_name = "t5-large"  # T5 model for summarization
     elif model_choice == "Llama3":
-        model_name = "llama3"  # Placeholder for Llama3 model if using the official URL
+        model_name = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 3 model for summarization
     else:
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
     # Ensure consistent use of the selected model for both summarization and conversation
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
     if model_choice == "Llama3":
-        # Official URL for Llama3
-        model_url = "https://llama3-3.llamameta.net/*?Policy=eyJTdGF0ZW1lbnQiOlt7InVuaXF1ZV9oYXNoIjoibW1lMm5xc2NraHp4NzV3eHkwbW5ncjJ3IiwiUmVzb3VyY2UiOiJodHRwczpcL1wvbGxhbWEzLTMubGxhbWFtZXRhLm5ldFwvKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTczNDcwNDMwNH19fV19&Signature=Hkh%7EU384aYXeUI8KSN0cehcrNQpSlAWv3eygk-8qL3NHJ-zMEtzJtpYk5KtJRJvt5Qa-cfWvUmxMjJPK2JfaRQwDvPId4ka2fOwc7f7lOIsxKKfjZ0kbeXYHwbmYImVyxZdrAvQGnC0RrCtxNEuFDQ%7Es5%7EwberM2vXNezaKxTZMtzom6q5Y0w2PnXJDwK5rTAsglBd4PTITdnUS1f3vGBToZiPZfwxuUAdpHeEAlHDVlVM9wsZS%7Ewb-Sxonri0Z3MspzQx7Bd1VXS3dK%7E1M85EBRCljVNjdwiFNwnd7qdW7-QpQ31SfAtMiVfaqJb19QS18E9XNJorfppPMvuqPuyw__&Key-Pair-Id=K15QRJLYKIFSLZ&Download-Request-ID=1054067176517874"
-        # Load the model from URL
-        tokenizer, model = load_llama3_model_from_url(model_url)
+        model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        if model_choice == "Llama3":
-            model = LlamaForCausalLM.from_pretrained(model_name)
-        else:
-            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
 
     return tokenizer, model
+
+# Initialize models and tokenizers based on user selection
+model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama3"))
+
+# Ensure a model is chosen before proceeding
+if model_choice not in ["BART", "T5", "Llama3"]:
+    st.warning("Please select a valid model for summarization and conversation.")
+
+summarization_tokenizer, summarization_model = load_summarization_model(model_choice)
 
 # Function to split text into manageable chunks for summarization
 def split_text(text, max_tokens=1024):
