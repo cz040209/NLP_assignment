@@ -11,7 +11,7 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference.models import SystemMessage, UserMessage
 
 # Your Azure API key (make sure it's stored in environment variable or directly here)
-AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
+AZURE_API_KEY = os.getenv("AZURE_API_KEY")  # Replace with your Azure key if necessary
 AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
@@ -140,43 +140,15 @@ if 'history' not in st.session_state:
     st.session_state.history = []
 
 # Custom CSS for a more premium look
-st.markdown("""
-    <style>
-        .css-1d391kg {
-            background-color: #1c1f24;  /* Dark background */
-            color: white;
-            font-family: 'Arial', sans-serif;
-        }
-        .css-1v0m2ju {
-            background-color: #282c34;  /* Slightly lighter background */
-        }
-        .css-13ya6yb {
-            background-color: #61dafb;  /* Button color */
-            border-radius: 5px;
-            padding: 10px 20px;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .css-10trblm {
-            font-size: 18px;
-            font-weight: bold;
-            color: #282c34;
-        }
-        .css-3t9iqy {
-            color: #61dafb;
-            font-size: 20px;
-        }
-        .botify-title {
-            font-family: 'Arial', sans-serif;
-            font-size: 48px;
-            font-weight: bold;
-            color: #61dafb;
-            text-align: center;
-            margin-top: 50px;
-            margin-bottom: 30px;
-        }
-    </style>
+st.markdown(""" 
+    <style> 
+        .css-1d391kg { background-color: #1c1f24; color: white; font-family: 'Arial', sans-serif; } 
+        .css-1v0m2ju { background-color: #282c34; } 
+        .css-13ya6yb { background-color: #61dafb; border-radius: 5px; padding: 10px 20px; color: white; font-size: 16px; font-weight: bold; } 
+        .css-10trblm { font-size: 18px; font-weight: bold; color: #282c34; } 
+        .css-3t9iqy { color: #61dafb; font-size: 20px; } 
+        .botify-title { font-family: 'Arial', sans-serif; font-size: 48px; font-weight: bold; color: #61dafb; text-align: center; margin-top: 50px; margin-bottom: 30px; } 
+    </style> 
 """, unsafe_allow_html=True)
 
 # Botify Title
@@ -275,7 +247,6 @@ if user_query:
     
     # Convert the bot's reply to speech
     text_to_speech(bot_reply)  # Make the bot speak the response
-
 
 # Translation Section with clean layout
 st.subheader("Translate Text")
