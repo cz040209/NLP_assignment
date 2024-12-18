@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, pipeline
 import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
@@ -10,8 +10,11 @@ from azure.ai.inference import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference.models import SystemMessage, UserMessage
 
+# Your Hugging Face API token (Replace with your Hugging Face token here)
+HUGGINGFACE_TOKEN = "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"  # Hugging Face API token
+
 # Your Azure API key (make sure it's stored in environment variable or directly here)
-AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
+AZURE_API_KEY = os.getenv("AZURE_API_KEY")  # Replace with your Azure key if necessary
 AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
@@ -52,7 +55,7 @@ def summarize_with_llama(text):
     )
     return response.choices[0].message.content
 
-# Load Summarization Model and Tokenizer
+# Load Summarization Model and Tokenizer for Hugging Face models (BART, T5, Llama)
 @st.cache_resource
 def load_summarization_model(model_choice="BART"):
     if model_choice == "BART":
@@ -65,8 +68,8 @@ def load_summarization_model(model_choice="BART"):
         raise ValueError(f"Unsupported model choice: {model_choice}")
     
     # Ensure consistent use of the selected model for both summarization and conversation
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HUGGINGFACE_TOKEN)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, use_auth_token=HUGGINGFACE_TOKEN)
 
     return tokenizer, model
 
