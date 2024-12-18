@@ -6,9 +6,10 @@ import torch
 import speech_recognition as sr  # For audio-to-text functionality
 from PIL import Image
 from gtts import gTTS
+import shutil
 
-# Clear cache of transformers
-os.system('rm -rf ~/.cache/huggingface')
+cache_dir = '/home/appuser/.cache/huggingface'
+shutil.rmtree(cache_dir)  # Deletes the cache
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
