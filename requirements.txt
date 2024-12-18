@@ -17,4 +17,4 @@ scipy
 matplotlib
 scikit-learn
 datasets
-
+huggingface_hub
