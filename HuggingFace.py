@@ -14,7 +14,7 @@ from azure.ai.inference.models import SystemMessage, UserMessage
 HUGGINGFACE_TOKEN = "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"  # Hugging Face API token
 
 # Your Azure API key (make sure it's stored in environment variable or directly here)
-AZURE_API_KEY = os.getenv("AZURE_API_KEY")  # Replace with your Azure key if necessary
+AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
 AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
