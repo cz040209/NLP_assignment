@@ -6,6 +6,9 @@ from transformers import pipeline
 from PIL import Image
 import speech_recognition as sr  # For audio-to-text functionality
 from gtts import gTTS
+from datasets import load_dataset
+from transformers import Trainer, TrainingArguments
+from transformers import BlipForConditionalGeneration, BlipProcessor
 
 # Your Hugging Face token
 HF_TOKEN = "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"  # Replace with your token
@@ -44,6 +47,157 @@ def load_summarization_model(model_choice="BART"):
         model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # For summarization (Seq2Seq LM)
 
     return tokenizer, model
+
+# Fine-tuning Summarization Models (BART, T5)
+def fine_tune_summarization_model():
+    # Load the dataset (CNN/DailyMail)
+    dataset = load_dataset("cnn_dailymail", version="3.0.0")
+
+    # Load the model and tokenizer
+    model_name = "facebook/bart-large-cnn"
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # Tokenize the dataset
+    def tokenize_function(examples):
+        return tokenizer(examples['article'], truncation=True, padding="max_length", max_length=1024)
+
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+    # Define training arguments
+    training_args = TrainingArguments(
+        output_dir="./summarization_results",
+        evaluation_strategy="epoch",
+        learning_rate=1e-5,
+        per_device_train_batch_size=4,
+        num_train_epochs=3,
+        logging_dir="./logs",
+    )
+
+    # Initialize Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets["train"],
+        eval_dataset=tokenized_datasets["test"],
+    )
+
+    # Fine-tune the model
+    trainer.train()
+    return model, tokenizer
+
+# Fine-tuning BLIP Model (Image-to-Text)
+def fine_tune_blip_model():
+    # Load dataset (Flickr30k or COCO)
+    dataset = load_dataset("flickr30k")
+
+    # Load model and processor
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+
+    # Tokenize images and captions
+    def tokenize_function(examples):
+        inputs = processor(images=examples['image'], return_tensors="pt")
+        return inputs
+
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+    # Define training arguments
+    training_args = TrainingArguments(
+        output_dir="./blip_results",
+        evaluation_strategy="epoch",
+        learning_rate=1e-5,
+        per_device_train_batch_size=4,
+        num_train_epochs=3,
+        logging_dir="./logs",
+    )
+
+    # Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets["train"],
+        eval_dataset=tokenized_datasets["test"],
+    )
+
+    trainer.train()
+    return model, processor
+
+# Fine-tuning Translation Models (Helsinki MarianMT)
+def fine_tune_translation_model(src_lang="en", tgt_lang="zh"):
+    # Load parallel dataset (WMT16)
+    dataset = load_dataset("wmt16", "ro-en")
+
+    # Load the model and tokenizer
+    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
+    model = MarianMTModel.from_pretrained(model_name)
+    tokenizer = MarianTokenizer.from_pretrained(model_name)
+
+    # Tokenize the dataset
+    def tokenize_function(examples):
+        return tokenizer(examples['translation'], truncation=True, padding="max_length")
+
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+    # Define training arguments
+    training_args = TrainingArguments(
+        output_dir="./translation_results",
+        evaluation_strategy="epoch",
+        learning_rate=1e-5,
+        per_device_train_batch_size=4,
+        num_train_epochs=3,
+        logging_dir="./logs",
+    )
+
+    # Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets["train"],
+        eval_dataset=tokenized_datasets["test"],
+    )
+
+    trainer.train()
+    return model, tokenizer
+
+# Fine-tuning Conversational Model (GPT-2 or GPT-3-like)
+def fine_tune_conversational_model():
+    # Load dataset (DailyDialog)
+    dataset = load_dataset("daily_dialog")
+
+    # Load model and tokenizer
+    model = AutoModelForCausalLM.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+
+    # Tokenize dataset
+    def tokenize_function(examples):
+        return tokenizer(examples['dialog'], truncation=True, padding="max_length")
+
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+    # Define training arguments
+    training_args = TrainingArguments(
+        output_dir="./chat_results",
+        evaluation_strategy="epoch",
+        learning_rate=1e-5,
+        per_device_train_batch_size=4,
+        num_train_epochs=3,
+        logging_dir="./logs",
+    )
+
+    # Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets["train"],
+        eval_dataset=tokenized_datasets["test"],
+    )
+
+    trainer.train()
+    return model, tokenizer
+
+
+# Your existing code starts here
 
 # Initialize models and tokenizers based on user selection
 model_choice = st.selectbox("Select Model for Summarization:", ("BART", "T5", "Llama3"))
@@ -115,44 +269,14 @@ if 'history' not in st.session_state:
     st.session_state.history = []
 
 # Custom CSS for a more premium look
-st.markdown("""
-    <style>
-        .css-1d391kg {
-            background-color: #1c1f24;  /* Dark background */
-            color: white;
-            font-family: 'Arial', sans-serif;
-        }
-        .css-1v0m2ju {
-            background-color: #282c34;  /* Slightly lighter background */
-        }
-        .css-13ya6yb {
-            background-color: #61dafb;  /* Button color */
-            border-radius: 5px;
-            padding: 10px 20px;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .css-10trblm {
-            font-size: 18px;
-            font-weight: bold;
-            color: #282c34;
-        }
-        .css-3t9iqy {
-            color: #61dafb;
-            font-size: 20px;
-        }
-        .botify-title {
-            font-family: 'Arial', sans-serif;
-            font-size: 48px;
-            font-weight: bold;
-            color: #61dafb;
-            text-align: center;
-            margin-top: 50px;
-            margin-bottom: 30px;
-        }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("""<style>
+        .css-1d391kg {background-color: #1c1f24; color: white;}
+        .css-1v0m2ju {background-color: #282c34;}
+        .css-13ya6yb {background-color: #61dafb; border-radius: 5px; padding: 10px 20px; color: white;}
+        .css-10trblm {font-size: 18px; font-weight: bold; color: #282c34;}
+        .css-3t9iqy {color: #61dafb; font-size: 20px;}
+        .botify-title {font-size: 48px; font-weight: bold; color: #61dafb; text-align: center;}
+    </style>""", unsafe_allow_html=True)
 
 # Botify Title
 st.markdown('<h1 class="botify-title">Botify</h1>', unsafe_allow_html=True)
@@ -165,7 +289,6 @@ context_text = ""
 # Handling different options
 if option == "Upload PDF":
     uploaded_file = st.file_uploader("Upload a PDF", type="pdf", label_visibility="collapsed")
-
     if uploaded_file:
         with st.spinner("Extracting text from PDF..."):
             pdf_text = extract_text_from_pdf(uploaded_file)
@@ -223,7 +346,7 @@ elif option == "Upload Image":
             st.write(image_text)
             st.session_state.history.append(("Image Upload", image_text))
 
-# Sidebar for Interaction History with improved layout
+# Sidebar for Interaction History
 st.sidebar.subheader("Interaction History")
 if st.session_state.history:
     for i, (user_input, response_output) in enumerate(st.session_state.history):
@@ -235,34 +358,26 @@ else:
 
 # Add a Conversation AI section
 st.subheader("Chat with Botify")
-
-# User input for chat
 user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
 
-# Process the query if entered
 if user_query:
     with st.spinner("Generating response..."):
-        # Use the selected model (BART, T5, or Llama3) for chat
         conversational_tokenizer, conversational_model = load_summarization_model(model_choice)  # Dynamically load the selected model
-
-        # Tokenize user query and generate response
         inputs = conversational_tokenizer(user_query, return_tensors="pt")
         response = conversational_model.generate(inputs["input_ids"], max_length=200)
         bot_reply = conversational_tokenizer.decode(response[0], skip_special_tokens=True)
 
     st.write(f"Botify: {bot_reply}")
     st.session_state.history.append(("User Query", bot_reply))
-    
-    # Convert the bot's reply to speech
-    text_to_speech(bot_reply)  # Make the bot speak the response
 
-# Translation Section with clean layout
+    # Convert the bot's reply to speech
+    text_to_speech(bot_reply)
+
+# Translation Section
 st.subheader("Translate Text")
 
-# Choose translation direction (English ↔ Chinese)
 target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
 
-# Map the user selection to actual language codes
 lang_map = {
     "English to Chinese": ("en", "zh"),
     "Chinese to English": ("zh", "en")
@@ -270,24 +385,7 @@ lang_map = {
 
 src_lang, tgt_lang = lang_map.get(target_language, ("en", "zh"))  # Default to English to Chinese
 
-# Function to load and perform translation
-@st.cache_resource
-def load_translation_model(src_lang, tgt_lang):
-    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    model = MarianMTModel.from_pretrained(model_name)
-    return tokenizer, model
-
-# Function to perform translation
-def translate_text(text, src_lang, tgt_lang):
-    tokenizer, model = load_translation_model(src_lang, tgt_lang)
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
-    translated = model.generate(**inputs)
-    translated_text = tokenizer.decode(translated[0], skip_special_tokens=True)
-    return translated_text
-
 if context_text:
     st.subheader("Translated Text")
-    # Perform the translation
     translated_text = translate_text(context_text, src_lang, tgt_lang)
     st.write(f"Translated Text: {translated_text}")
