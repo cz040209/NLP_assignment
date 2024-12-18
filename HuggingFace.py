@@ -1,24 +1,27 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MarianMTModel, MarianTokenizer, pipeline
-import torch
-import speech_recognition as sr  # For audio-to-text functionality
-from PIL import Image
-from gtts import gTTS
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from azure.ai.inference import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
-from azure.ai.inference.models import SystemMessage, UserMessage
+from gtts import gTTS
+from PIL import Image
+import speech_recognition as sr  # For audio-to-text functionality
+
+# Load environment variables from .env file (optional, for local development)
+from dotenv import load_dotenv
+load_dotenv()  # Ensure that this file contains your API keys
 
 # Your Hugging Face API token (Replace with your Hugging Face token here)
-HUGGINGFACE_TOKEN = "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"  # Hugging Face API token
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN", "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")  # Replace with your Hugging Face token
 
 # Your Azure API key (make sure it's stored in environment variable or directly here)
-AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
+AZURE_API_KEY = os.getenv("AZURE_API_KEY", "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")  # Replace with your Azure API key
 AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
 def load_blip_model():
+    from transformers import BlipProcessor, BlipForConditionalGeneration
     processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
     return processor, model
@@ -45,13 +48,12 @@ def summarize_with_llama(text):
     client = load_llama_model()
     response = client.complete(
         messages=[
-            SystemMessage(content="You are a helpful assistant."),
-            UserMessage(content=text),
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": text},
         ],
         model="Meta-Llama-3.1-70B-Instruct",  # Azure Llama model
         temperature=0.7,
         max_tokens=150,
-        top_p=0.95,
     )
     return response.choices[0].message.content
 
@@ -196,93 +198,48 @@ elif option == "Enter Text Manually":
                 summary = summarize_text(manual_text)
             st.success("Summary generated!")
             st.write(summary)
-            st.session_state.history.append(("Manual Text", summary))
-    else:
-        st.info("Please enter some text to summarize.")
+            st.session_state.history.append(("Manual Input", summary))
 
 elif option == "Upload Audio":
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "flac"], label_visibility="collapsed")
+    uploaded_audio = st.file_uploader("Upload Audio", type=["wav", "mp3", "flac"], label_visibility="collapsed")
 
-    if audio_file:
-        with st.spinner("Transcribing audio to text..."):
-            try:
-                transcription = audio_to_text(audio_file)
-                st.success("Transcription successful!")
-                st.write(transcription)
-                st.session_state.history.append(("Audio Upload", transcription))
-            except Exception as e:
-                st.error(f"Error: {e}")
+    if uploaded_audio:
+        with st.spinner("Converting audio to text..."):
+            audio_text = audio_to_text(uploaded_audio)
+        st.success("Audio converted to text!")
+        st.text_area("Converted Audio Text", audio_text[:2000], height=200)
+        context_text = audio_text
+
+        # Summarize the audio content
+        st.subheader("Summarize Audio Content")
+        if st.button("Summarize Audio", use_container_width=True):
+            with st.spinner("Summarizing text..."):
+                summary = summarize_text(audio_text)
+            st.success("Summary generated!")
+            st.write(summary)
+            st.session_state.history.append(("Audio Upload", summary))
 
 elif option == "Upload Image":
-    image_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    uploaded_image = st.file_uploader("Upload an Image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
 
-    if image_file:
-        with st.spinner("Extracting text from image..."):
-            image_text = image_to_text(image_file)
-            st.success("Text extracted from image!")
-            st.write(image_text)
-            st.session_state.history.append(("Image Upload", image_text))
+    if uploaded_image:
+        with st.spinner("Extracting description from image..."):
+            image_description = image_to_text(uploaded_image)
+        st.success("Description generated from image!")
+        st.write(image_description)
+        context_text = image_description
 
-# Sidebar for Interaction History with improved layout
-st.sidebar.subheader("Interaction History")
+        # Summarize the image description
+        st.subheader("Summarize Image Description")
+        if st.button("Summarize Image Description", use_container_width=True):
+            with st.spinner("Summarizing description..."):
+                summary = summarize_text(image_description)
+            st.success("Summary generated!")
+            st.write(summary)
+            st.session_state.history.append(("Image Upload", summary))
+
+# Display chat history
 if st.session_state.history:
-    for i, (user_input, response_output) in enumerate(st.session_state.history):
-        st.sidebar.write(f"**Interaction {i + 1}:**")
-        st.sidebar.write(f"**User Input:** {user_input}")
-        st.sidebar.write(f"**Response Output:** {response_output}")
-else:
-    st.sidebar.write("No history yet.")
-
-# Add a Conversation AI section
-st.subheader("Chat with Botify")
-
-# User input for chat
-user_query = st.text_input("Enter your query:", key="chat_input", placeholder="Type something to chat!")
-
-# Process the query if entered
-if user_query:
-    with st.spinner("Generating response..."):
-        # Use Azure Llama model to generate a response
-        bot_reply = summarize_with_llama(user_query)
-
-    st.write(f"Botify: {bot_reply}")
-    st.session_state.history.append(("User Query", bot_reply))
-    
-    # Convert the bot's reply to speech
-    text_to_speech(bot_reply)  # Make the bot speak the response
-
-# Translation Section with clean layout
-st.subheader("Translate Text")
-
-# Choose translation direction (English ↔ Chinese)
-target_language = st.selectbox("Choose translation direction:", ("English to Chinese", "Chinese to English"))
-
-# Map the user selection to actual language codes
-lang_map = {
-    "English to Chinese": ("en", "zh"),
-    "Chinese to English": ("zh", "en")
-}
-
-src_lang, tgt_lang = lang_map.get(target_language, ("en", "zh"))  # Default to English to Chinese
-
-# Function to load and perform translation
-@st.cache_resource
-def load_translation_model(src_lang, tgt_lang):
-    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    model = MarianMTModel.from_pretrained(model_name)
-    return tokenizer, model
-
-# Function to perform translation
-def translate_text(text, src_lang, tgt_lang):
-    tokenizer, model = load_translation_model(src_lang, tgt_lang)
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
-    translated = model.generate(**inputs)
-    translated_text = tokenizer.decode(translated[0], skip_special_tokens=True)
-    return translated_text
-
-if context_text:
-    st.subheader("Translated Text")
-    # Perform the translation
-    translated_text = translate_text(context_text, src_lang, tgt_lang)
-    st.write(f"Translated Text: {translated_text}")
+    st.subheader("Conversation History")
+    for idx, (user_input, bot_output) in enumerate(st.session_state.history):
+        st.write(f"**{user_input}**: {bot_output}")
