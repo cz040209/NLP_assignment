@@ -1,10 +1,10 @@
 import os
 import streamlit as st
 import pdfplumber
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, LlamaTokenizer, LlamaForCausalLM, BlipProcessor, BlipForConditionalGeneration, MarianMTModel, MarianTokenizer
-import torch
-import speech_recognition as sr  # For audio-to-text functionality
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM, MarianMTModel, MarianTokenizer
+from transformers import pipeline
 from PIL import Image
+import speech_recognition as sr  # For audio-to-text functionality
 from gtts import gTTS
 
 # Your Hugging Face token
@@ -39,9 +39,9 @@ def load_summarization_model(model_choice="BART"):
     # Ensure consistent use of the selected model for both summarization and conversation
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=HF_TOKEN)
     if model_choice == "Llama3":
-        model = LlamaForCausalLM.from_pretrained(model_name, token=HF_TOKEN)
+        model = AutoModelForCausalLM.from_pretrained(model_name, token=HF_TOKEN)  # For text generation (Causal LM)
     else:
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=HF_TOKEN)  # For summarization (Seq2Seq LM)
 
     return tokenizer, model
 
@@ -255,7 +255,6 @@ if user_query:
     
     # Convert the bot's reply to speech
     text_to_speech(bot_reply)  # Make the bot speak the response
-
 
 # Translation Section with clean layout
 st.subheader("Translate Text")
