@@ -11,7 +11,7 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference.models import SystemMessage, UserMessage
 
 # Your Azure API key (make sure it's stored in environment variable or directly here)
-AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
+AZURE_API_KEY = os.getenv("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")  # Replace with your Azure key if necessary
 AZURE_ENDPOINT = "https://models.inference.ai.azure.com"  # Replace with your Azure endpoint
 
 # Set up the BLIP model for image-to-text
@@ -45,7 +45,7 @@ def summarize_with_llama(text):
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content=text),
         ],
-        model="Meta-Llama-3.1-70B-Instruct",
+        model="Meta-Llama-3.1-70B-Instruct",  # Azure Llama model
         temperature=0.7,
         max_tokens=150,
         top_p=0.95,
